@@ -1,14 +1,14 @@
-import { GLOBAL_INDICES, SECTORS, VERSION } from "./config";
-import { saveSnapshot } from "./storage";
-import { aiSentiment } from "./ai/sentiment";
-import { fetchGdeltArticles } from "./datasources/gdelt";
-import { fetchAllNews } from "./datasources/rss";
-import { fetchStooqDaily } from "./datasources/stooq";
-import { fetchYahooDaily } from "./datasources/yahoo";
-import { computeCosmoSpectral } from "./engine/cosmology";
-import { computeMomentum, logReturns } from "./engine/momentum";
-import { computeQuantumGeometry } from "./engine/quantumGeometry";
-import { computeHeatScore } from "./engine/scoring";
+import { GLOBAL_INDICES, SECTORS, VERSION } from "./config.ts";
+import { saveSnapshot } from "./storage.ts";
+import { aiSentiment } from "./ai/sentiment.ts";
+import { fetchGdeltArticles } from "./datasources/gdelt.ts";
+import { fetchAllNews } from "./datasources/rss.ts";
+import { fetchStooqDaily } from "./datasources/stooq.ts";
+import { fetchYahooDaily } from "./datasources/yahoo.ts";
+import { computeCosmoSpectral } from "./engine/cosmology.ts";
+import { computeMomentum, logReturns } from "./engine/momentum.ts";
+import { computeQuantumGeometry } from "./engine/quantumGeometry.ts";
+import { computeHeatScore } from "./engine/scoring.ts";
 import type {
   Env,
   GlobalIndexQuote,

@@ -25,6 +25,18 @@
 
 - `package.json` に `test` / `typecheck` スクリプトを追加。実行時の依存と
   デプロイ手順 (`npx wrangler deploy`) は変更なし。
+- `src/` の実行時 import に `.ts` 拡張子を明示した (14 箇所)。拡張子なしの
+  相対 import は Node の ESM リゾルバが解決できず、`src/datasources/rss.ts` の
+  ように実行時 import を持つモジュールはテストから読み込めなかった。
+  esbuild / wrangler の解決結果は変わらない (`wrangler deploy --dry-run` で確認)。
+
+### Added (追補)
+
+- `test/rss.test.ts` — RSS/Atom パーサのテスト 15 件。`parseFeed` は
+  **第三者が本文を書ける入力**を解析する唯一の純粋関数で、SECURITY.md で
+  攻撃面として挙げているにもかかわらず未検証だった。
+  タグ除去・エンティティ経由で隠したマークアップの除去・壊れた XML での
+  無例外性 (1 フィードの破損でパイプライン全体を止めない) を固定している。
 
 ## [0.1.1] — 2026-08-04
 

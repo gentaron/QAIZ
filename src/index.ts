@@ -1,5 +1,5 @@
-import { runPipeline } from "./scheduled";
-import { loadSnapshot, SnapshotStore } from "./storage";
+import { runPipeline } from "./scheduled.ts";
+import { loadSnapshot, SnapshotStore } from "./storage.ts";
 import type { Env } from "./types";
 
 export { SnapshotStore };
