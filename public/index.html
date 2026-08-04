@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QAIZ — Quantum-geometric Sector Heat</title>
+<style>
+  :root {
+    --bg: #070b14;
+    --panel: #0d1424;
+    --panel2: #111a30;
+    --border: #1d2a4a;
+    --text: #d7e1f5;
+    --dim: #7d8db0;
+    --hot: #ff5d5d;
+    --warm: #ffb347;
+    --cool: #4da3ff;
+    --cold: #3ddc97;
+    --accent: #8b7dff;
+    font-size: 15px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 70% -10%, #14204017, transparent), var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 1.2rem;
+  }
+  header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+  h1 { font-size: 1.35rem; letter-spacing: .06em; }
+  h1 .q { color: var(--accent); }
+  .sub { color: var(--dim); font-size: .8rem; }
+  #updated { margin-left: auto; color: var(--dim); font-size: .75rem; }
+  .grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+  }
+  .panel h2 { font-size: .95rem; margin-bottom: .8rem; color: #aebcdd; letter-spacing: .04em; }
+  .sector {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(7.5rem, 1fr) 5.2rem 3.4rem minmax(6rem, 1fr);
+    gap: .6rem;
+    align-items: center;
+    padding: .48rem .5rem;
+    border-radius: 8px;
+    margin-bottom: .3rem;
+    background: var(--panel2);
+    cursor: pointer;
+  }
+  .sector:hover { outline: 1px solid var(--border); }
+  .rank { color: var(--dim); font-variant-numeric: tabular-nums; text-align: center; }
+  .sname b { display: block; font-size: .88rem; }
+  .sname span { color: var(--dim); font-size: .68rem; }
+  .heatbar { height: 8px; border-radius: 4px; background: #1a2440; overflow: hidden; }
+  .heatbar i { display: block; height: 100%; border-radius: 4px; }
+  .heatval { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+  .spark { width: 100%; height: 30px; }
+  .detail {
+    grid-column: 1 / -1;
+    display: none;
+    padding: .5rem .4rem 0;
+    color: var(--dim);
+    font-size: .74rem;
+    line-height: 1.7;
+  }
+  .sector.open .detail { display: block; }
+  .detail b { color: var(--text); font-weight: 600; }
+  .badge { display: inline-block; padding: .05rem .45rem; border-radius: 99px; font-size: .68rem; margin-left: .3rem; }
+  .bullish { background: #123c2c; color: var(--cold); }
+  .bearish { background: #401a22; color: var(--hot); }
+  .neutral { background: #232b45; color: var(--dim); }
+  .idx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; }
+  .idx {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: .55rem .6rem;
+    font-size: .78rem;
+  }
+  .idx .r { font-variant-numeric: tabular-nums; font-weight: 700; font-size: .9rem; }
+  .up { color: var(--cold); }
+  .down { color: var(--hot); }
+  .news-item { padding: .45rem 0; border-bottom: 1px solid #16203a; font-size: .8rem; }
+  .news-item a { color: var(--text); text-decoration: none; }
+  .news-item a:hover { color: var(--cool); }
+  .news-item .src { color: var(--dim); font-size: .68rem; }
+  #status { color: var(--dim); font-size: .85rem; padding: 2rem 0; text-align: center; }
+  button.refresh {
+    background: var(--accent); color: #0b0f1e; border: 0; border-radius: 8px;
+    padding: .45rem .9rem; font-weight: 700; cursor: pointer; font-size: .78rem;
+  }
+  footer { margin-top: 1.2rem; color: #4a5878; font-size: .68rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="q">Q</span>AIZ <span class="sub">/ Quantum-geometric Sector Heat Radar</span></h1>
+  <span id="updated"></span>
+</header>
+
+<div id="status">読み込み中…</div>
+
+<div class="grid" id="main" style="display:none">
+  <section class="panel">
+    <h2>🔥 セクター・ヒートランキング <span class="sub">(モメンタム × 量子情報幾何 × Hurst × AIセンチメント)</span></h2>
+    <div id="sectors"></div>
+  </section>
+  <div style="display:flex; flex-direction:column; gap:1rem;">
+    <section class="panel">
+      <h2>🌍 世界市場ヒートマップ</h2>
+      <div class="idx-grid" id="indices"></div>
+    </section>
+    <section class="panel">
+      <h2>📰 マーケットニュース <span class="sub">(RSS + GDELT)</span></h2>
+      <div id="news"></div>
+    </section>
+  </div>
+</div>
+
+<footer>
+  データ: Yahoo Finance (非公式API) / Stooq / 各社RSS / GDELT — すべてキー不要の無料ソース。
+  AI: Cloudflare Workers AI (Meta Llama, 非Google)。
+  数理: Fubini-Study 距離・量子忠実度・QFI近似 (量子情報幾何) + Hurst指数・スペクトル傾き (宇宙論的時系列解析)。
+  <br>⚠️ 本ツールは研究・情報提供目的であり、投資助言ではありません。投資判断は自己責任で。
+</footer>
+
+<script>
+const heatColor = h =>
+  h >= 70 ? "var(--hot)" : h >= 55 ? "var(--warm)" : h >= 40 ? "var(--cool)" : "var(--cold)";
+
+const pct = x => (x >= 0 ? "+" : "") + (100 * x).toFixed(1) + "%";
+
+function sparkSvg(points, color) {
+  if (!points || points.length < 2) return "";
+  const w = 120, h = 30;
+  const step = w / (points.length - 1);
+  const d = points.map((p, i) =>
+    (i === 0 ? "M" : "L") + (i * step).toFixed(1) + "," + (h - 2 - p * (h - 4)).toFixed(1)
+  ).join(" ");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6"/></svg>`;
+}
+
+function renderSectors(sectors) {
+  const el = document.getElementById("sectors");
+  el.innerHTML = sectors.map((s, i) => {
+    const c = heatColor(s.heat);
+    const sent = s.sentiment
+      ? `<span class="badge ${s.sentiment.label}">${s.sentiment.label} ${s.sentiment.score >= 0 ? "+" : ""}${s.sentiment.score} (${s.sentiment.method === "workers-ai" ? "AI" : "lex"})</span>`
+      : `<span class="badge neutral">no news</span>`;
+    const regime = s.cosmo.hurst > 0.55 ? "トレンド持続" : s.cosmo.hurst < 0.45 ? "平均回帰" : "中立";
+    const transition = s.quantum.fubiniStudy > 0.9 ? " ⚡レジーム転換の兆候" : "";
+    return `<div class="sector" onclick="this.classList.toggle('open')">
+      <div class="rank">${i + 1}</div>
+      <div class="sname"><b>${s.sector.nameJa}</b><span>${s.sector.symbol} · ${s.sector.nameEn}</span></div>
+      <div class="heatbar"><i style="width:${s.heat}%;background:${c}"></i></div>
+      <div class="heatval" style="color:${c}">${s.heat.toFixed(0)}</div>
+      <div>${sparkSvg(s.spark, c)}</div>
+      <div class="detail">
+        <b>モメンタム</b> 1週 ${pct(s.momentum.r1w)} / 1ヶ月 ${pct(s.momentum.r1m)} / 3ヶ月 ${pct(s.momentum.r3m)} / ボラ調整 ${s.momentum.volAdj.toFixed(2)}<br>
+        <b>量子情報幾何</b> 忠実度 F=${s.quantum.fidelity.toFixed(3)} / Fubini-Study距離 ${s.quantum.fubiniStudy.toFixed(3)} rad${transition} / QFI≈${s.quantum.qfiProxy.toFixed(3)} / エントロピー ${s.quantum.entropy.toFixed(3)}<br>
+        <b>宇宙論スペクトル</b> Hurst=${s.cosmo.hurst.toFixed(3)} (${regime}) / スペクトル傾き ${s.cosmo.spectralSlope.toFixed(2)}<br>
+        <b>センチメント</b> ${sent} 対象ヘッドライン ${s.sentiment ? s.sentiment.headlineCount : 0} 件
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderIndices(indices) {
+  document.getElementById("indices").innerHTML = indices.map(x => {
+    const cls = x.r1d >= 0 ? "up" : "down";
+    return `<div class="idx">
+      <div>${x.name} <span class="sub">${x.region}</span></div>
+      <div class="r ${cls}">${pct(x.r1d)}</div>
+      <div class="sub">1週 ${pct(x.r1w)} · 1ヶ月 ${pct(x.r1m)}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderNews(news) {
+  document.getElementById("news").innerHTML = news.slice(0, 18).map(n =>
+    `<div class="news-item"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><div class="src">${n.source} ${n.pubDate ? "· " + n.pubDate : ""}</div></div>`
+  ).join("");
+}
+
+async function load() {
+  const status = document.getElementById("status");
+  try {
+    const res = await fetch("/api/snapshot");
+    if (res.status === 503) {
+      status.innerHTML = `初回データがまだ生成されていません。<br><br><button class="refresh" onclick="refresh()">▶ 今すぐパイプラインを実行</button>`;
+      return;
+    }
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const snap = await res.json();
+    document.getElementById("updated").textContent =
+      "更新: " + new Date(snap.generatedAt).toLocaleString("ja-JP") + " · モデル: " + snap.meta.aiModel;
+    renderSectors(snap.sectors);
+    renderIndices(snap.indices);
+    renderNews(snap.news);
+    status.style.display = "none";
+    document.getElementById("main").style.display = "grid";
+  } catch (e) {
+    status.textContent = "読み込みエラー: " + e.message;
+  }
+}
+
+async function refresh() {
+  const status = document.getElementById("status");
+  status.textContent = "パイプライン実行中… (30秒ほどかかります)";
+  try {
+    const res = await fetch("/api/refresh", { method: "POST" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    await load();
+  } catch (e) {
+    status.textContent = "実行エラー: " + e.message;
+  }
+}
+
+load();
+setInterval(load, 5 * 60 * 1000);
+</script>
+</body>
+</html>

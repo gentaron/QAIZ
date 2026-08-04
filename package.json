@@ -1,0 +1,17 @@
+{
+  "name": "qaiz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QAIZ — Quantum-geometric AI Zone: sector momentum heat prediction on Cloudflare edge (zero-cost stack)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.100.0"
+  }
+}

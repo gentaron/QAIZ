@@ -1,0 +1,37 @@
+# QAIZ — Quantum-geometric AI Zone
+# Cloudflare Workers 無料プランのみで動作する構成。
+#
+# デプロイ手順:
+#   1. npx wrangler login
+#   2. npx wrangler kv namespace create QAIZ_KV
+#      → 出力された id を下の [[kv_namespaces]] に貼り付け
+#   3. npx wrangler deploy
+name = "qaiz"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+# 静的ダッシュボード (public/) を Worker と同一オリジンで配信 (無料)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Workers AI (無料枠: 1日あたり 10,000 Neurons)。
+# 使用モデルは Meta Llama 系 (非Google)。src/ai/sentiment.ts 参照。
+[ai]
+binding = "AI"
+
+# KV (無料枠: 読取 100k/日, 書込 1k/日) — パイプライン結果のキャッシュ
+[[kv_namespaces]]
+binding = "QAIZ_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# 1時間ごとにデータ収集 → スコア計算 → KV 保存
+# (無料プランで cron trigger 利用可。KV 書込は 1 回の実行で数件なので無料枠内)
+[triggers]
+crons = ["0 * * * *"]
+
+[vars]
+# センチメント分析に使うモデル (Workers AI / Meta Llama — 非Google)
+SENTIMENT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+# 任意: 無料APIキーを追加したい場合は `wrangler secret put FINNHUB_KEY` などで
+# secret として登録する (コードは未設定でも動作するように書かれている)
