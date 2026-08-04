@@ -3,7 +3,7 @@
 numpy>=1.26
 pandas>=2.1
 scipy>=1.11
-matplotlib>=3.8
+matplotlib>=3.11.1
 yfinance>=0.2.40
 pennylane>=0.36
 torch>=2.2
