@@ -9,7 +9,12 @@
     "noEmit": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    // test/ は Node ネイティブの型ストリッピングで直接実行するため、
+    // import に .ts 拡張子を書く必要がある。noEmit なので許可して問題ない。
+    "allowImportingTsExtensions": true
   },
+  // テストの型検査は tsconfig.test.json 側。Node の型を本体に混ぜると、
+  // エッジで動かないコード (fs / process) が型検査を通ってしまう。
   "include": ["src/**/*.ts"]
 }

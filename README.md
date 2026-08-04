@@ -87,6 +87,21 @@ npm run dev        # http://localhost:8787
 curl -X POST http://localhost:8787/api/refresh
 ```
 
+### テスト
+
+```bash
+npm test           # 数理エンジンのユニットテスト
+npm run typecheck  # tsc --noEmit (src / test 双方)
+```
+
+テストランナーは Node 標準の `node:test` で、**追加の依存はゼロ**。
+`.ts` をネイティブの型ストリッピングで直接実行するため **Node 22.18 以上**が必要。
+
+対象は `src/engine/` と `src/ai/sentiment.ts` の純粋関数 — 値域 (スコア `[0,100]`、
+Hurst `[0,1]`、d_FS `[0,π/2]`)、退化ケース (空配列・定数列・短い系列)、
+指標間の整合 (d_FS = arccos(√F))、レジーム係数の向きを固定している。
+ネットワークにも Cloudflare にも触らないので、CI は Secret なしで完走する。
+
 ## API
 
 | エンドポイント | 内容 |
@@ -129,8 +144,20 @@ curl -X POST http://localhost:8787/api/refresh
 │   ├── engine/              # quantumGeometry / cosmology / momentum / scoring
 │   └── ai/sentiment.ts      # Workers AI (Llama) + レキシコンフォールバック
 ├── public/index.html        # ダッシュボード (依存ゼロの単一HTML)
+├── test/                    # 数理エンジンのユニットテスト (node:test)
 └── research/                # PennyLane / PINN / 宇宙論スペクトル PoC
 ```
+
+開発上の規約は [CONTRIBUTING.md](CONTRIBUTING.md)、脆弱性の報告は [SECURITY.md](SECURITY.md)、
+変更履歴は [CHANGELOG.md](CHANGELOG.md) を参照。
+
+## ライセンス
+
+[MIT](LICENSE)。README 冒頭で謳っているとおりオープンソースであり、フォーク・改変・再配布・商用利用が可能。
+
+`package.json` の `"private": true` は **npm レジストリへの誤publishを防ぐためのフラグ** であって、ソースの利用条件とは無関係。ライセンスの正本は `LICENSE` ファイル。
+
+`research/` 配下の Python PoC も同じ MIT で提供する。ただし PennyLane / PyTorch など依存ライブラリは各々のライセンス (Apache-2.0 / BSD-3-Clause 等) に従うこと。
 
 ## 免責
 

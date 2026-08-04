@@ -1,0 +1,12 @@
+{
+  // テストは Cloudflare Workers ではなく Node で走るので、
+  // workers-types に加えて Node の型が要る。本体の tsconfig に
+  // @types/node を足すと Worker 側のコードから fs や process が
+  // 見えてしまい、エッジで動かないコードが型検査を通ってしまう。
+  // 型の見える範囲を分けるために別ファイルにしている。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

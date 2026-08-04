@@ -7,10 +7,13 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "types": "wrangler types",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --test test/*.test.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260730.1",
+    "@types/node": "^22.20.1",
     "typescript": "^5.6.0",
     "wrangler": "^4.20.0"
   }

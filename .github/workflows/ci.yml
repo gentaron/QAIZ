@@ -1,0 +1,41 @@
+name: CI
+
+# 型検査と数理エンジンのテスト。ネットワークにも Cloudflare にも触らないので、
+# fork からの PR でも Secret なしで完走する。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22.18+ が必要。テストは .ts を直接実行しており、
+      # ネイティブの型ストリッピングに依存している。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
