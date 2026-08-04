@@ -1,0 +1,51 @@
+# 依存の自動更新。
+#
+# QAIZ の実行時依存はゼロ (Workers ランタイムのみ) で、npm 側は
+# wrangler / typescript / @cloudflare/workers-types の 3 つ。
+# wrangler は Cloudflare 側の API 変更に追随するため、放置すると
+# デプロイが通らなくなる種類の依存。
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # research/ の Python PoC。CI では動かさないが、requirements.txt が
+  # 腐ると「動かした人だけが古い脆弱な依存を引く」状態になる。
+  - package-ecosystem: pip
+    directory: /research
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - research
+    commit-message:
+      prefix: chore
+      include: scope
