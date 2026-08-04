@@ -51,9 +51,4 @@ export const RSS_FEEDS: { url: string; source: string }[] = [
   { url: "https://www3.nhk.or.jp/rss/news/cat5.xml", source: "NHK 経済" },
 ];
 
-/** KV キー */
-export const KV_SNAPSHOT_KEY = "snapshot:v1";
-/** KV スナップショットのTTL (秒) — cron失敗時も25時間は前回値を配信 */
-export const SNAPSHOT_TTL = 60 * 60 * 25;
-
 export const VERSION = "0.1.0";

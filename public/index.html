@@ -191,7 +191,9 @@ async function load() {
   try {
     const res = await fetch("/api/snapshot");
     if (res.status === 503) {
-      status.innerHTML = `初回データがまだ生成されていません。<br><br><button class="refresh" onclick="refresh()">▶ 今すぐパイプラインを実行</button>`;
+      // 初回はサーバー側でパイプラインが自動起動する → ポーリングで待つ
+      status.innerHTML = `⏳ 初回データを生成中です… (30〜60秒ほどかかります)<br><span class="sub">世界市場データ収集 → 量子幾何/スペクトル解析 → AIセンチメント</span>`;
+      setTimeout(load, 8000);
       return;
     }
     if (!res.ok) throw new Error("HTTP " + res.status);

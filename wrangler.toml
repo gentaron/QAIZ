@@ -1,11 +1,9 @@
 # QAIZ — Quantum-geometric AI Zone
 # Cloudflare Workers 無料プランのみで動作する構成。
 #
-# デプロイ手順:
-#   1. npx wrangler login
-#   2. npx wrangler kv namespace create QAIZ_KV
-#      → 出力された id を下の [[kv_namespaces]] に貼り付け
-#   3. npx wrangler deploy
+# デプロイ: `npx wrangler deploy` だけでOK。
+# ストレージは Durable Object (SQLite) を使うため、KV のような
+# 手動ネームスペース作成や ID の貼り付けは一切不要 (デプロイ時に自動作成)。
 name = "qaiz"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
@@ -20,13 +18,16 @@ binding = "ASSETS"
 [ai]
 binding = "AI"
 
-# KV (無料枠: 読取 100k/日, 書込 1k/日) — パイプライン結果のキャッシュ
-[[kv_namespaces]]
-binding = "QAIZ_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+# スナップショット保存用 Durable Object (SQLite バックエンド = 無料プラン対応)
+[[durable_objects.bindings]]
+name = "SNAPSHOT_DO"
+class_name = "SnapshotStore"
 
-# 1時間ごとにデータ収集 → スコア計算 → KV 保存
-# (無料プランで cron trigger 利用可。KV 書込は 1 回の実行で数件なので無料枠内)
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SnapshotStore"]
+
+# 1時間ごとにデータ収集 → スコア計算 → 保存 (無料プランで cron 利用可)
 [triggers]
 crons = ["0 * * * *"]
 

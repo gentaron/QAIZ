@@ -3,7 +3,7 @@
 export interface Env {
   ASSETS: Fetcher;
   AI: Ai;
-  QAIZ_KV: KVNamespace;
+  SNAPSHOT_DO: DurableObjectNamespace;
   SENTIMENT_MODEL: string;
   /** 任意の無料APIキー (未設定でも全機能が動作する) */
   FINNHUB_KEY?: string;

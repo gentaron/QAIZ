@@ -1,10 +1,5 @@
-import {
-  GLOBAL_INDICES,
-  KV_SNAPSHOT_KEY,
-  SECTORS,
-  SNAPSHOT_TTL,
-  VERSION,
-} from "./config";
+import { GLOBAL_INDICES, SECTORS, VERSION } from "./config";
+import { saveSnapshot } from "./storage";
 import { aiSentiment } from "./ai/sentiment";
 import { fetchGdeltArticles } from "./datasources/gdelt";
 import { fetchAllNews } from "./datasources/rss";
@@ -183,8 +178,6 @@ export async function runPipeline(env: Env): Promise<Snapshot> {
     },
   };
 
-  await env.QAIZ_KV.put(KV_SNAPSHOT_KEY, JSON.stringify(snapshot), {
-    expirationTtl: SNAPSHOT_TTL,
-  });
+  await saveSnapshot(env, snapshot);
   return snapshot;
 }

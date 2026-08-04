@@ -1,19 +1,24 @@
-import { KV_SNAPSHOT_KEY } from "./config";
 import { runPipeline } from "./scheduled";
-import type { Env, Snapshot } from "./types";
+import { loadSnapshot, SnapshotStore } from "./storage";
+import type { Env } from "./types";
+
+export { SnapshotStore };
 
 /**
  * QAIZ — Quantum-geometric AI Zone
  * セクターモメンタム・ヒート予測をCloudflareエッジで配信するWorker。
  *
  * ルーティング:
- *   GET /api/snapshot   … 最新スナップショット全体 (KVキャッシュ)
+ *   GET /api/snapshot   … 最新スナップショット全体
  *   GET /api/sectors    … セクターヒートランキングのみ
  *   GET /api/indices    … 世界指数クオートのみ
  *   GET /api/news       … 収集済みニュース
- *   POST /api/refresh   … パイプラインを手動実行 (初回セットアップ用)
+ *   POST /api/refresh   … パイプラインを手動実行
  *   GET /api/health     … ヘルスチェック
  *   GET /*              … 静的ダッシュボード (public/)
+ *
+ * 初回アクセス時 (スナップショット未生成) はバックグラウンドで
+ * パイプラインを自動起動し、ダッシュボード側がポーリングして表示する。
  */
 
 function json(data: unknown, status = 200): Response {
@@ -21,14 +26,10 @@ function json(data: unknown, status = 200): Response {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": status === 200 ? "public, max-age=300" : "no-store",
       "Access-Control-Allow-Origin": "*",
     },
   });
-}
-
-async function getSnapshot(env: Env): Promise<Snapshot | null> {
-  return env.QAIZ_KV.get<Snapshot>(KV_SNAPSHOT_KEY, "json");
 }
 
 export default {
@@ -46,7 +47,6 @@ export default {
       }
 
       if (path === "/api/refresh" && request.method === "POST") {
-        // 初回セットアップやデバッグ用。cron を待たずに実行できる。
         const snapshot = await runPipeline(env);
         return json({
           ok: true,
@@ -56,15 +56,11 @@ export default {
         });
       }
 
-      const snapshot = await getSnapshot(env);
+      const snapshot = await loadSnapshot(env);
       if (!snapshot) {
-        return json(
-          {
-            error:
-              "snapshot not ready — run `curl -X POST https://<worker>/api/refresh` once, or wait for the hourly cron",
-          },
-          503
-        );
+        // 初回: バックグラウンドで生成を開始し、クライアントにはポーリングを促す
+        ctx.waitUntil(runPipeline(env).catch(() => {}));
+        return json({ status: "generating" }, 503);
       }
 
       switch (path) {

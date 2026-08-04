@@ -69,18 +69,15 @@ npm install
 # 2. Cloudflare ログイン (無料アカウントでOK)
 npx wrangler login
 
-# 3. KV ネームスペース作成
-npx wrangler kv namespace create QAIZ_KV
-#    → 出力された id を wrangler.toml の [[kv_namespaces]] に貼り付け
-
-# 4. デプロイ
+# 3. デプロイ (これだけ。KV作成などの手作業は不要)
 npx wrangler deploy
-
-# 5. 初回データ生成 (cron を待たない場合)
-curl -X POST https://qaiz.<あなたのサブドメイン>.workers.dev/api/refresh
 ```
 
-ブラウザで `https://qaiz.<サブドメイン>.workers.dev/` を開くとダッシュボードが表示される。以後は毎時 cron が自動でデータを更新する。
+ストレージは **Durable Object (SQLite)** なのでデプロイ時に自動作成される。ID の手動設定は一切ない。
+
+GitHub連携の **Workers Builds** でも同様に、デプロイコマンド `npx wrangler deploy` のままで通る。
+
+ブラウザで `https://qaiz.<サブドメイン>.workers.dev/` を開くと、**初回はパイプラインが自動起動して30〜60秒でダッシュボードが表示される**。以後は毎時 cron が自動でデータを更新する。
 
 ### ローカル開発
 
@@ -107,8 +104,7 @@ curl -X POST http://localhost:8787/api/refresh
 |---|---|---|
 | Workers リクエスト | 100,000/日 | cron 24回 + 閲覧分 → 余裕 |
 | Workers AI | 10,000 Neurons/日 | 毎時 最大16セクター × 小プロンプト → 枠内。超過時はレキシコンに自動フォールバック |
-| KV 書込 | 1,000/日 | 24回/日 |
-| KV 読取 | 100,000/日 | 閲覧数分 (5分キャッシュ付き) |
+| Durable Objects (SQLite) | 100,000 リクエスト/日・5GB | 書込 24回/日 + 閲覧分 (5分キャッシュ付き) → 余裕 |
 | データAPI | Yahoo/Stooq/RSS/GDELT すべてキー不要・無料 | エッジキャッシュ (cacheTtl) で礼儀正しく |
 
 **任意の拡張** (すべて無料枠あり・無くても動く): Finnhub / Alpha Vantage のキーを `wrangler secret put` で追加可能。
