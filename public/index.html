@@ -94,17 +94,46 @@
     padding: .45rem .9rem; font-weight: 700; cursor: pointer; font-size: .78rem;
   }
   footer { margin-top: 1.2rem; color: #4a5878; font-size: .68rem; line-height: 1.6; }
+
+  /* --- 量子OSパネル --- */
+  .qos { grid-column: 1 / -1; }
+  .basket { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 .8rem; }
+  .chip {
+    background: #16203c; border: 1px solid #263358; border-radius: 999px;
+    padding: .25rem .7rem; font-size: .78rem; font-weight: 600;
+  }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+  .kpi { background: #101830; border: 1px solid #1e2a48; border-radius: 8px; padding: .55rem .7rem; }
+  .kpi .k { color: var(--dim); font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi .v { font-size: 1.05rem; font-weight: 700; margin-top: .15rem; }
+  table.bench { width: 100%; border-collapse: collapse; font-size: .74rem; margin-top: .5rem; }
+  table.bench th, table.bench td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #1a2440; }
+  table.bench th { color: var(--dim); font-weight: 600; font-size: .66rem; text-transform: uppercase; }
+  table.bench td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .kind-classical { color: #7f8db0; }
+  .kind-quantum-sim { color: var(--accent); }
+  .kind-quantum-hardware { color: var(--hot); }
+  .verdict { border-radius: 8px; padding: .5rem .7rem; font-size: .76rem; line-height: 1.55; margin-top: .5rem; }
+  .verdict.query-model { background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.35); }
+  .verdict.none { background: rgba(127,141,176,.08); border: 1px solid #26314e; }
+  .verdict.unverified { background: rgba(255,176,32,.08); border: 1px solid rgba(255,176,32,.35); }
+  .verdict b { display: block; margin-bottom: .2rem; }
+  .fail { color: #6b7897; }
 </style>
 </head>
 <body>
 <header>
-  <h1><span class="q">Q</span>AIZ <span class="sub">/ Quantum-geometric Sector Heat Radar</span></h1>
+  <h1><span class="q">Q</span>AIZ <span class="sub">/ Quantum Advantage Instrumentation Zone</span></h1>
   <span id="updated"></span>
 </header>
 
 <div id="status">読み込み中…</div>
 
 <div class="grid" id="main" style="display:none">
+  <section class="panel qos" id="qos-panel" style="display:none">
+    <h2>⚛️ 量子OS <span class="sub">— 基数制約付きバスケット選択 (NP困難) + 振幅推定によるテールリスク</span></h2>
+    <div id="qos"></div>
+  </section>
   <section class="panel">
     <h2>🔥 セクター・ヒートランキング <span class="sub">(モメンタム × 量子情報幾何 × Hurst × AIセンチメント)</span></h2>
     <div id="sectors"></div>
@@ -125,6 +154,9 @@
   データ: Yahoo Finance (非公式API) / Stooq / 各社RSS / GDELT — すべてキー不要の無料ソース。
   AI: Cloudflare Workers AI (Meta Llama, 非Google)。
   数理: Fubini-Study 距離・量子忠実度・QFI近似 (量子情報幾何) + Hurst指数・スペクトル傾き (宇宙論的時系列解析)。
+  <br>量子OS: 状態ベクトルQVM (TypeScript・依存ゼロ) 上の QAOA+ (XYミキサー) と IQAE。
+  「量子情報幾何」は<b>量子計算ではなく古典統計量</b>であり、優位性の主張には一切使っていない。
+  優位性として計上するのはクエリ計算量と解の品質のみ (シミュレータの実行時間は<b>優位性ではない</b>)。
   <br>⚠️ 本ツールは研究・情報提供目的であり、投資助言ではありません。投資判断は自己責任で。
 </footer>
 
@@ -180,6 +212,75 @@ function renderIndices(indices) {
   }).join("");
 }
 
+const VERDICT_LABEL = {
+  "query-model": "✅ クエリ計算量で優位 (測定済み)",
+  "none": "— 優位性なし (この規模では)",
+  "unverified": "⚠️ 未検証 (厳密解が取れないため断定不可)",
+};
+
+function renderQuantum(q, sectors) {
+  const panel = document.getElementById("qos-panel");
+  if (!q) { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+
+  const nameOf = id => (sectors.find(s => s.sector.id === id) || {}).sector
+    ? sectors.find(s => s.sector.id === id).sector.nameJa : id;
+
+  const chips = q.basket.ids.map(id => `<span class="chip">${nameOf(id)}</span>`).join("");
+  const exactMark = q.basket.matchesExact === null
+    ? '<span class="sub">厳密解は未計算</span>'
+    : q.basket.matchesExact
+      ? '<span class="sub">厳密解と一致 ✓</span>'
+      : '<span class="sub" style="color:var(--warm)">厳密解と不一致</span>';
+
+  const kpis = `
+    <div class="kpis">
+      <div class="kpi"><div class="k">VaR 95%</div><div class="v">${(q.risk.varThreshold * 100).toFixed(2)}%</div></div>
+      <div class="kpi"><div class="k">CVaR (期待ショートフォール)</div><div class="v">${(q.risk.cvar * 100).toFixed(2)}%</div></div>
+      <div class="kpi"><div class="k">テール確率 (真値)</div><div class="v">${(q.risk.tailProbability * 100).toFixed(2)}%</div></div>
+      <div class="kpi"><div class="k">IQAE 推定値</div><div class="v" style="color:var(--accent)">${(q.risk.quantumEstimate * 100).toFixed(2)}%</div></div>
+      <div class="kpi"><div class="k">量子オラクル呼び出し</div><div class="v">${q.risk.oracleCalls.toLocaleString()}</div></div>
+      <div class="kpi"><div class="k">古典が要するサンプル</div><div class="v">${q.risk.classicalSamples.toLocaleString()}</div></div>
+      <div class="kpi"><div class="k">クエリ優位</div><div class="v" style="color:${q.risk.queryAdvantage > 1 ? "var(--accent)" : "var(--dim)"}">×${q.risk.queryAdvantage.toFixed(2)}</div></div>
+      <div class="kpi"><div class="k">使用量子ビット</div><div class="v">${q.risk.qubits}</div></div>
+    </div>`;
+
+  const ledger = q.ledgerEntries.map(e => {
+    const rows = e.runs.map(r => `
+      <tr>
+        <td class="kind-${r.kind}">${r.backend}</td>
+        <td class="sub">${r.kind}</td>
+        <td class="num">${r.ok ? r.wallMs.toFixed(1) + " ms" : "—"}</td>
+        <td class="num">${r.ok ? r.queries.toLocaleString() : "—"}</td>
+        <td class="${r.ok ? "" : "fail"}">${r.ok ? "ok" : (r.error || "skipped")}</td>
+      </tr>`).join("");
+    const v = e.verdict;
+    return `
+      <h3 style="font-size:.8rem;margin:.9rem 0 .2rem">${e.problem} <span class="sub">n=${e.size}${
+        e.approximationRatio != null ? " · 近似比 " + e.approximationRatio.toFixed(4) : ""
+      }</span></h3>
+      <div class="sub">${e.summary}</div>
+      <table class="bench">
+        <tr><th>バックエンド</th><th>種別</th><th style="text-align:right">実時間</th><th style="text-align:right">作業量</th><th>状態</th></tr>
+        ${rows}
+      </table>
+      <div class="verdict ${v.kind}"><b>${VERDICT_LABEL[v.kind] || v.kind}</b>${v.note || v.reason || ""}</div>`;
+  }).join("");
+
+  document.getElementById("qos").innerHTML = `
+    <div class="sub">今期のバスケット (K=${q.basket.cardinality} 本 / 目的関数 ${q.basket.objective.toFixed(4)}) ${exactMark}</div>
+    <div class="basket">${chips}</div>
+    ${kpis}
+    ${ledger}
+    <div class="verdict none" style="margin-top:.8rem">
+      <b>スケーリングの壁</b>
+      厳密列挙が 10⁹ 候補を超えるのは資産数 <b>n = ${q.exactEnumerationWallAt}</b> から。
+      現在の n=${q.ledgerEntries[0] ? q.ledgerEntries[0].size : "?"} は厳密解が一瞬で出るので、
+      組合せ最適化側に量子の出番は無い。優位が測れているのは振幅推定 (クエリ計算量) の側だけ。
+      CPU 予算 ${q.budgetMs} ms。
+    </div>`;
+}
+
 function renderNews(news) {
   document.getElementById("news").innerHTML = news.slice(0, 18).map(n =>
     `<div class="news-item"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><div class="src">${n.source} ${n.pubDate ? "· " + n.pubDate : ""}</div></div>`
@@ -200,6 +301,7 @@ async function load() {
     const snap = await res.json();
     document.getElementById("updated").textContent =
       "更新: " + new Date(snap.generatedAt).toLocaleString("ja-JP") + " · モデル: " + snap.meta.aiModel;
+    renderQuantum(snap.quantum, snap.sectors);
     renderSectors(snap.sectors);
     renderIndices(snap.indices);
     renderNews(snap.news);

@@ -1,4 +1,4 @@
-import type { NewsItem } from "../types";
+import type { NewsItem } from "../types.ts";
 
 /**
  * GDELT DOC 2.0 API (キー不要・無料)。

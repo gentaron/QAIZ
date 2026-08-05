@@ -1,4 +1,4 @@
-import type { Bar, Series } from "../types";
+import type { Bar, Series } from "../types.ts";
 
 /**
  * Yahoo Finance 非公式 chart API (キー不要・無料)。

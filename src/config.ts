@@ -1,4 +1,4 @@
-import type { SectorDef } from "./types";
+import type { SectorDef } from "./types.ts";
 
 /**
  * セクター定義。
@@ -51,4 +51,4 @@ export const RSS_FEEDS: { url: string; source: string }[] = [
   { url: "https://www3.nhk.or.jp/rss/news/cat5.xml", source: "NHK 経済" },
 ];
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";

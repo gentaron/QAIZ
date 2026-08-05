@@ -1,4 +1,4 @@
-import type { CosmoSpectral } from "../types";
+import type { CosmoSpectral } from "../types.ts";
 
 /**
  * 宇宙論的スペクトル解析エンジン。

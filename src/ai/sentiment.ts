@@ -1,4 +1,4 @@
-import type { Env, NewsItem, SentimentResult } from "../types";
+import type { Env, NewsItem, SentimentResult } from "../types.ts";
 
 /**
  * ニュースセンチメント分析。

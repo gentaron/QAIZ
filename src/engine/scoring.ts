@@ -3,7 +3,7 @@ import type {
   Momentum,
   QuantumGeometry,
   SentimentResult,
-} from "../types";
+} from "../types.ts";
 
 /**
  * 総合ヒートスコア [0, 100]。
