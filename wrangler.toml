@@ -1,4 +1,4 @@
-# QAIZ — Quantum-geometric AI Zone
+# QAIZ — Quantitative Analyst Intelligence Zone
 # Cloudflare Workers 無料プランのみで動作する構成。
 #
 # デプロイ: `npx wrangler deploy` だけでOK。
@@ -14,44 +14,48 @@ directory = "./public"
 binding = "ASSETS"
 
 # Workers AI (無料枠: 1日あたり 10,000 Neurons)。
-# 使用モデルは Meta Llama 系 (非Google)。src/ai/sentiment.ts 参照。
+# ニュースのセンチメント判定にのみ使う。未設定でもレキシコンで動作する。
 [ai]
 binding = "AI"
 
-# スナップショット保存用 Durable Object (SQLite バックエンド = 無料プラン対応)
+# 分析結果・価格系列の保存先 (SQLite バックエンド = 無料プラン対応)
 [[durable_objects.bindings]]
-name = "SNAPSHOT_DO"
-class_name = "SnapshotStore"
+name = "STORE"
+class_name = "AnalyticsStore"
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SnapshotStore"]
 
-# 1時間ごとにデータ収集 → スコア計算 → 保存 (無料プランで cron 利用可)
+# v0.2 の量子OS版から作り直したため、旧クラスを破棄して新クラスに差し替える。
+# 旧スナップショットは構造が違うので引き継がない (残しても型が合わず読めない)。
+[[migrations]]
+tag = "v2"
+deleted_classes = ["SnapshotStore"]
+new_sqlite_classes = ["AnalyticsStore"]
+
+# 15分ごとに 1 シャードを更新する。SHARDS=8 なので約 2 時間で全銘柄が一巡する。
+# 日次バーが対象なので、この頻度で十分に新しい。
 [triggers]
-crons = ["0 * * * *"]
+crons = ["*/15 * * * *"]
 
 [vars]
-# センチメント分析に使うモデル (Workers AI / Meta Llama — 非Google)
+# センチメント分析に使うモデル (Workers AI / Meta Llama)
 SENTIMENT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
 
-# --- 量子OS ---
-# 1回のパイプラインで量子OSに与える CPU 時間 (ms)。
-# 状態ベクトルシミュレーションは指数コストなので、必ず上限を切る。
-# 予算を超えたバックエンドは実行されず、その理由が台帳に残る。
-# Workers 無料プランは 1 実行あたりの CPU 時間が厳しいので、
-# CPU 超過エラーが出るようなら 30 程度まで下げてよい (QAOA は自動で縮退する)。
-QUANTUM_BUDGET_MS = "120"
-# バスケットの選択本数 K (基数制約)
-BASKET_CARDINALITY = "5"
-# テールリスク推定の目標精度 ε
-TAIL_EPSILON = "0.01"
-# 任意: 無料APIキーを追加したい場合は `wrangler secret put FINNHUB_KEY` などで
-# secret として登録する (コードは未設定でも動作するように書かれている)
-#
-# 任意: 実機 QPU に投げたい場合は以下を secret として登録する。
-# 未設定なら量子バックエンドはシミュレータのみで動き、台帳には
-# 「実機は未設定」と明示的に記録される (ダミー結果は返さない)。
-#   wrangler secret put QPU_ENDPOINT   # OpenQASM3 を受け付ける HTTP エンドポイント
-#   wrangler secret put QPU_TOKEN      # Bearer トークン
-#   wrangler secret put QPU_BACKEND    # バックエンド名 (例: ibm_brisbane)
+# ユニバースの分割数。1 実行で回す銘柄数 = ceil(ユニバース / SHARDS)。
+# 「CPU time limit exceeded」が出るようなら増やす (1 回あたりが軽くなる)。
+SHARDS = "8"
+
+# 1 実行あたりの外部フェッチ上限。Workers 無料プランのサブリクエスト上限
+# (50本/実行) の内側に置く。超えた銘柄は次のシャード巡回で拾われ、
+# スキップされた事実は /api/meta の errors に "budget-skip:" として残る。
+FETCH_BUDGET = "44"
+
+# ファクター合成のウェイト (JSON)。合計は自動で正規化される。
+# 例: バリュー寄りにするなら {"value":0.4,"quality":0.2,"momentum":0.2,"growth":0.1,"lowVol":0.1}
+FACTOR_WEIGHTS = '{"value":0.25,"quality":0.25,"momentum":0.25,"growth":0.15,"lowVol":0.10}'
+
+# 任意: 有料プランなら CPU 上限を引き上げられる。無料プランでは無視される。
+# [limits]
+# cpu_ms = 30000

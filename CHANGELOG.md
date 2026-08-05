@@ -1,124 +1,92 @@
-# Changelog
+# CHANGELOG
 
-書式は [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/)、
-バージョン番号は [Semantic Versioning](https://semver.org/lang/ja/) に従います。
+## 1.0.0 — 株式アナリティクスへの全面刷新
 
-## [Unreleased]
+量子コンピューティングのシミュレーション層を全部撤去し、**地域 × セクターの株式分析
+ターミナル**として作り直しました。QAOA も振幅推定も、株の良し悪しを判断する役には
+立っていなかったので、そのぶんを実際にアナリストが見る指標の実装に充てています。
 
-## [0.2.0] — 2026-08-05
+### 削除
 
-**量子OSの搭載。** v0.1 は「量子」を名乗りながら量子計算を一切していなかった
-(`quantumGeometry.ts` は名前が量子的なだけの O(n) 古典統計量)。それ以前の問題として、
-QAIZ が解いていた課題に計算量的な難しさが無く、**量子を挿す場所が原理的に存在しなかった**。
-このリリースは「難しい問題を作る → 本物の量子計算を実装する → 勝敗を測る」の順で作り直した。
+- `src/quantum/` 全体 (statevector / gates / circuit / QAOA / IQAE / QUBO / stateprep)
+- `src/os/` 全体 (kernel / backends / ledger / qpu — 量子優位性の計測台帳)
+- `src/problems/` (基数制約付きバスケット選択、テールリスクの振幅推定)
+- `src/engine/cosmology.ts` (Hurst 指数・パワースペクトル)、`src/engine/quantumGeometry.ts`
+  (量子忠実度・Fubini-Study 距離)
+- `bench/advantage.ts`、`research/` の Python 実験コード
+- 関連テスト 12 本と、`/api/quantum/*` エンドポイント一式
 
-### Added
+### 追加 — 分析エンジン
 
-#### 量子仮想マシン (`src/quantum/`)
+- **`analytics/stats.ts`** 統計プリミティブ。頑健 Z スコア (中央値 + MAD)、
+  ウィンザライズ、パーセンタイル順位 (同値は平均順位)、相関、単回帰、歪度、尖度。
+  サンプル不足は `0` ではなく `null` を返す
+- **`analytics/technicals.ts`** RSI / MACD / ボリンジャー (+%B・バンド幅パーセンタイル・
+  スクイーズ) / ATR / ストキャス / ADX+DI / OBV / MFI / CCI / Williams %R / ROC / VWAP /
+  移動平均 5-20-50-100-200 + クロス + パーフェクトオーダー / 古典・フィボナッチのピボット /
+  スイング高安のクラスタリングによる支持抵抗帯 / RSI ダイバージェンス。
+  平滑化は指標ごとに Wilder (α=1/n) と EMA (α=2/(n+1)) を使い分ける
+- **`analytics/risk.ts`** 年率ボラ (20/60/252日)・下方偏差・β・α・R²・トラッキングエラー・
+  情報比・上昇下落キャプチャ・最大ドローダウン・シャープ・ソルティノ・カルマー・
+  歴史的 VaR/CVaR (95/99%)・歪度・尖度
+- **`analytics/fundamentals.ts`** バリュー 9 指標・クオリティ 10 指標・グロース 5 指標の
+  スコアカード。指標ごとに定義域を持ち、外れた値 (赤字企業の負の PER など) は欠損扱い
+- **`analytics/factors.ts`** 5 ファクター (バリュー / クオリティ / モメンタム / グロース /
+  低ボラ) の Z 段階での加重合成。モメンタムは 12-1 が主軸で、直近 1 ヶ月は短期リバーサルとして減点
+- **`analytics/rotation.ts`** Z スコア正規化版 RS-Ratio / RS-Momentum と四象限判定
+- **`analytics/correlation.ts`** 相関行列・冪乗法による第1主成分・相関距離の階層クラスタリング
+- **`analytics/regime.ts`** トレンド / ボラティリティ / リスク選好を別々に判定し、根拠を開示
+- **`analytics/breadth.ts`** 200日線超え比率・騰落レシオ・新高値新安値
+- **`analytics/signals.ts`** 30 種類以上のシグナル生成 (全件に実数の根拠つき)
+- **`analytics/screener.ts`** ドットパス指定のフィルタ・ソート DSL と 8 プリセット
+- **`analytics/aggregate.ts`** 地域 × セクター集計とヒートスコア
 
-- `statevector.ts` — 状態ベクトルシミュレータ (最大22量子ビット)。任意の 1 量子ビットゲート、
-  多重制御ゲート、対角ユニタリの一括適用、位相オラクル、測定サンプリング。
-  ビット順はリトルエンディアン。Bell / GHZ 状態とユニタリ性をテストで固定。
-- `sector.ts` — ハミング重み保存セクタに限定したシミュレータ。XY ミキサーと対角コストは
-  どちらも粒子数を保存するので、2ⁿ 次元を持ち歩く必要が無い。n=16, K=6 で
-  65,536 → 8,008 次元 (8.2倍削減)。完全な状態ベクトルとの一致を 1e-13 でテスト。
-- `circuit.ts` — 回路 IR。シミュレータ用の融合実装と実機用の分解ゲート列を同じ命令が
-  両方持つ構造にして、資源見積り (CX換算・深さ) の正確さを保った。逆回路、OpenQASM3 出力。
-- `qaoa.ts` — QAOA / QAOA+。X ミキサー (ペナルティ方式) と XY リングミキサー
-  (Hadfield et al. 2019、Dicke 初期状態、基数制約を保存則として満たす) の両方。
-  目的関数は CVaR_α (Barkoutsos et al. 2020)。パラメータ最適化は Nelder-Mead。
-- `iqae.ts` — 反復量子振幅推定 (Grinko et al. 2021)。Grover 演算子 Q = A S₀ A† S_χ、
-  Chernoff-Hoeffding 信頼区間、区間の半周期への逆写像。
-- `stateprep.ts` — 一様制御 RY による厳密な離散分布ロード (Möttönen 型)、閾値オラクル。
-- `optimizer.ts` / `qubo.ts` / `gates.ts` / `rng.ts` — Nelder-Mead、QUBO↔Ising 変換、
-  ゲート行列、決定論的 RNG。
+### 追加 — データ層
 
-#### 量子の出番がある問題 (`src/problems/`)
+- Yahoo Finance `/v8/finance/chart` を OHLCV 対応に拡張。**adjclose の調整比率を
+  高安始値にも適用** し、配当落ちが下落として計上されるのを防止
+- Yahoo Finance `/v10/finance/quoteSummary` を追加 (cookie + crumb 認証)。
+  PER/PBR/ROE/利益率/成長率/アナリスト目標株価/レーティング分布を取得。
+  crumb セッションは 6 時間キャッシュ
+- Stooq を OHLCV 対応に拡張 (フォールバック)。配当調整なしを警告として記録
+- `FetchBudget` — サブリクエスト上限の管理。予算切れは黙って諦めず理由を記録する
 
-- `basket.ts` — **基数制約付きセクターバスケット選択** (NP困難)。
-  `maximize μᵀx − λxᵀΣx s.t. |x|=K` を QUBO 化。
-- `tailrisk.ts` — **バスケットのテールリスク推定**。振幅推定が
-  二次高速化を証明済みの問題クラス (古典 Θ(1/ε²) vs 量子 O(1/ε))。
+### 変更 — 実行モデル
 
-#### 量子OS (`src/os/`)
+- ユニバースを 8 シャードに分割し、cron (15分ごと) で 1 シャードずつ更新。
+  価格系列は Durable Object に残るので、更新していない銘柄も横断分析には参加する
+- Durable Object を `SnapshotStore` → `AnalyticsStore` に置き換え。
+  1 値 128 KiB 上限に収まるよう、メタ / 銘柄レコード / 価格系列を別キーに分離
+- ユニバースを 135 銘柄に拡大 (セクター ETF 40、個別株 66、ベンチマーク 17、マクロ 12)
 
-- `kernel.ts` — CPU 予算内でのバックエンド選択と実行、判定。
-- `backends.ts` — 厳密列挙 (Gosper's hack)、焼きなまし (基数保存スワップ近傍)、QAOA。
-- `ledger.ts` — **優位性台帳**。クエリ計算量と解の品質だけを優位性として計上し、
-  シミュレータの壁時計時間は構造的に計上できないようにした。判定は
-  `query-model` / `none` / `unverified` の 3 値。
-- `qpu.ts` — 実機 QPU アダプタ。未設定なら明示的に unavailable を返す (ダミー結果は返さない)。
-  不透明命令を含む回路は実機に投げない。
+### 変更 — API
 
-#### 配線・検証
+`/api/quantum/*` を削除し、以下に置き換え:
+`/api/overview` `/api/universe` `/api/sectors` `/api/screener` (GET/POST) `/api/presets`
+`/api/symbol/{s}` `/api/compare` `/api/history/{s}` `/api/rotation` `/api/breadth`
+`/api/regime` `/api/correlation` `/api/factors` `/api/news` `/api/meta`
 
-- API 3 本を追加: `GET /api/basket`、`GET /api/quantum/ledger`、`GET /api/quantum/status`、
-  `POST /api/quantum/solve` (第三者が優位性を再現できるよう μ/Σ を外から渡せる)。
-- ダッシュボードに量子OSパネル (バスケット、VaR/CVaR、バックエンド横並び表、判定)。
-- `bench/advantage.ts` — 優位性ベンチマーク。README の表はこの出力そのもの。
-- テストを 61 → 184 に拡張。Grover 演算子が `sin²((2k+1)θ)` を 1e-12 で再現すること、
-  IQAE のクエリ比が ε を細かくするほど伸びること (= 二次高速化そのもの) を含む。
+### 変更 — ダッシュボード
 
-### Changed
+5 タブ構成に全面刷新 (概況 / セクター / スクリーナー / ローテーション / リスク・相関) +
+個別銘柄モーダル (価格チャート・出来高・RSI サブプロット・テクニカル内訳・スコアカード・
+リスク・コンセンサス・シグナル・支持抵抗・ピア比較・データの出所)。
 
-- **スナップショットに `quantum` を追加** — QAIZ の出力が「ランキング」から
-  「実際に持つ K 本のバスケット + その尾リスク + 優位性台帳」になった。
-- 永続化層に台帳キー (`ledger:v1`) を追加。スナップショットは上書きされるが台帳は積み上がる。
-- `wrangler.toml` に `QUANTUM_BUDGET_MS` / `BASKET_CARDINALITY` / `TAIL_EPSILON` を追加。
-  予算を超えたバックエンドは実行されず、その理由が台帳に残る。
-- 焼きなましは予算切れでも最低 1 回は回すようにした (「解なし」を返すより粗い実行可能解を返す)。
-- Nelder-Mead の打ち切り判定を `>` から `>=` に変更し、予算 0 の挙動を決定論にした。
+### テスト
 
-### Notes
+107 テスト。RSI は Wilder の標準系列に対する手計算値と照合し、公表テーブルとの
+0.07 のズレが元データの丸め由来であることまで検証しています。
+ADX がトレンド相場でレンジ相場より高くなること、β が自己相関で 1 になること、
+主成分の寄与率が単位行列で 1/n になること、欠損がスクリーニング条件に一致しないこと、
+などを個別に検証しています。
 
-- `src/engine/quantumGeometry.ts` は**特徴量として残した**。市場レジーム指標としては機能し、
-  ヒートスコアに効いている。ただし**優位性の主張には一切使っていない** — 古典統計量だから。
-- 組合せ最適化側に現時点の優位性は**無い**。n=16 は厳密列挙が 1ms で終わる。
-  QAIZ はそれを隠さず、毎回厳密解を並走させて近似比を台帳に書く。
+---
 
-## [0.1.2] — 2026-08-04
+## 0.2.0 (削除済み) — 量子OS版
 
-### Added
+セクター選択を基数制約付き QUBO として QAOA で解き、テールリスクを反復量子振幅推定で
+見積もり、古典バックエンドと横並びで計測する「優位性台帳」を持っていたバージョン。
 
-- `LICENSE` (MIT) と README のライセンス節。README は冒頭から「オープンソース」を
-  謳っていたが、ライセンスの実体がなく利用条件が不明だった状態を解消。
-  `package.json` の `"private": true` は npm への誤 publish 防止であって
-  ソースの利用条件ではない旨も明記した。
-- `CONTRIBUTING.md` — 3 層 (データソース / 数理エンジン / 配線) ごとの規約、
-  数理エンジンの純粋性要件、無料枠の予算表。
-- `SECURITY.md` — 非公開報告手順と、RSS/GDELT・Workers AI・公開 API という攻撃面の整理。
-- `CHANGELOG.md` (このファイル)。
-- 数理エンジンのユニットテスト (`test/`)。`node --test` のネイティブ TypeScript 実行を
-  使い、**追加依存ゼロ**。値域・退化ケース・既知入力に対する既知出力を固定した。
-- CI ワークフロー `ci.yml` — push / PR で `tsc --noEmit` と `npm test` を実行。
-- `dependabot.yml` — npm と github-actions を週次で更新。
-- CodeQL ワークフロー — push / PR / 週次で TypeScript を静的解析。
+## 0.1.0 (削除済み) — 初版
 
-### Changed (0.1.2)
-
-- `package.json` に `test` / `typecheck` スクリプトを追加。実行時の依存と
-  デプロイ手順 (`npx wrangler deploy`) は変更なし。
-
-## [0.1.1] — 2026-08-04
-
-### Fixed
-
-- ストレージを Workers KV から **Durable Object (SQLite)** に置き換え、デプロイ時に
-  自動プロビジョニングされるようにした。KV の id を手で `wrangler.toml` に書く手順が
-  消え、`npx wrangler deploy` だけで通るようになった。
-
-## [0.1.0] — 2026-08-04
-
-### Added
-
-- 初回リリース。Cloudflare エッジ上のセクターモメンタム・レーダー一式:
-  - 数理エンジン — 量子情報幾何 (忠実度 / Fubini-Study 距離 / QFI 近似 / 振幅エントロピー)、
-    宇宙論スペクトル解析 (Hurst 指数 / スペクトル傾き)、マルチタイムフレーム・モメンタム、
-    それらを合成する 0〜100 のヒートスコア。
-  - データソース — Yahoo Finance (非公式) と Stooq フォールバック、RSS 6 フィード、GDELT。
-    すべてキー不要・無料。
-  - AI センチメント — Workers AI (Llama 3.1 8B)。無料枠超過時はレキシコンへ自動フォールバック。
-  - REST API 6 本と、依存ゼロの単一 HTML ダッシュボード。
-  - 毎時 cron による自動更新。
-  - 研究層 `research/` — PennyLane による量子幾何テンソル、PINN による Black–Scholes 求解、
-    CMB 流スペクトル解析の PoC。
+セクターのヒートスコアランキングと、量子情報幾何 / 宇宙論的スペクトル指標。

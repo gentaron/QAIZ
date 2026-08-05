@@ -1,21 +1,26 @@
 import type { Env, NewsItem, SentimentResult } from "../types.ts";
 
 /**
- * ニュースセンチメント分析。
+ * ニュースセンチメント。
  *
- * 1st choice: Cloudflare Workers AI (Meta Llama — 非Google、無料枠 10k Neurons/日)
- * fallback  : 内蔵レキシコン (AIバインディング未設定・無料枠超過でも動く)
+ * 第1候補: Cloudflare Workers AI (Llama 3.1 8B — 無料枠 10k Neurons/日)
+ * 予備   : 内蔵レキシコン (AI が使えない・枠切れでも必ず値が出る)
+ *
+ * どちらで出したかを method に必ず残す。レキシコンは語彙の一致数を
+ * 数えているだけなので、LLM の判定と同じ重みで扱ってはいけない。
  */
 
 const LEXICON_POS = [
-  "surge", "rally", "soar", "jump", "gain", "beat", "record", "boom",
-  "bullish", "upgrade", "growth", "strong", "rise", "high", "profit",
-  "上昇", "最高値", "好調", "増益", "回復",
+  "surge", "rally", "soar", "jump", "gain", "beat", "record high", "boom",
+  "bullish", "upgrade", "growth", "strong", "rise", "profit", "outperform",
+  "expansion", "recovery", "raises guidance",
+  "上昇", "最高値", "好調", "増益", "回復", "上方修正", "続伸",
 ];
 const LEXICON_NEG = [
-  "plunge", "crash", "fall", "drop", "slump", "miss", "fear", "recession",
-  "bearish", "downgrade", "weak", "loss", "decline", "risk", "warning",
-  "下落", "安値", "懸念", "減益", "暴落",
+  "plunge", "crash", "slump", "miss", "fear", "recession", "downgrade",
+  "bearish", "weak", "loss", "decline", "warning", "cuts guidance", "layoff",
+  "default", "bankruptcy", "selloff", "slowdown",
+  "下落", "安値", "懸念", "減益", "暴落", "下方修正", "続落",
 ];
 
 export function lexiconSentiment(headlines: string[]): SentimentResult {
@@ -36,13 +41,21 @@ export function lexiconSentiment(headlines: string[]): SentimentResult {
   };
 }
 
-/**
- * Workers AI (Llama 3.1 8B) にヘッドライン束を渡し、
- * -1.0〜+1.0 のセンチメントスコアをJSONで返させる。
- */
+/** キーワードに引っかかった見出しを集める */
+export function matchHeadlines(news: NewsItem[], keywords: string[], limit = 12): string[] {
+  const kw = keywords.map((k) => k.toLowerCase());
+  const hits = news
+    .filter((n) => {
+      const t = n.title.toLowerCase();
+      return kw.some((k) => t.includes(k));
+    })
+    .map((n) => n.title);
+  return [...new Set(hits)].slice(0, limit);
+}
+
 export async function aiSentiment(
   env: Env,
-  sectorName: string,
+  topic: string,
   headlines: string[]
 ): Promise<SentimentResult> {
   if (headlines.length === 0) {
@@ -50,24 +63,20 @@ export async function aiSentiment(
   }
   try {
     const prompt = [
-      `You are a financial sentiment analyst. Below are recent news headlines related to the "${sectorName}" sector.`,
-      `Rate the overall near-term (1-4 week) outlook for this sector implied by these headlines.`,
-      `Respond with ONLY a JSON object: {"score": <number from -1.0 (very bearish) to 1.0 (very bullish)>}`,
-      ``,
+      `You are a sell-side equity analyst. Below are recent news headlines related to "${topic}".`,
+      "Rate the near-term (1-4 week) outlook these headlines imply for that sector.",
+      'Respond with ONLY a JSON object: {"score": <number from -1.0 (very bearish) to 1.0 (very bullish)>}',
+      "",
       ...headlines.slice(0, 15).map((h, i) => `${i + 1}. ${h}`),
     ].join("\n");
 
-    const result = (await env.AI.run(
-      env.SENTIMENT_MODEL as keyof AiModels,
-      {
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 64,
-        temperature: 0.1,
-      } as never
-    )) as { response?: string };
+    const result = (await env.AI.run(env.SENTIMENT_MODEL as keyof AiModels, {
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 48,
+      temperature: 0.1,
+    } as never)) as { response?: string };
 
-    const text = result.response ?? "";
-    const m = text.match(/-?\d+(\.\d+)?/);
+    const m = (result.response ?? "").match(/-?\d+(\.\d+)?/);
     if (!m) throw new Error("no score in AI response");
     const score = Math.max(-1, Math.min(1, parseFloat(m[0])));
     return {
@@ -77,7 +86,6 @@ export async function aiSentiment(
       method: "workers-ai",
     };
   } catch {
-    // 無料枠超過・モデルエラー時はレキシコンに自動フォールバック
     return lexiconSentiment(headlines);
   }
 }

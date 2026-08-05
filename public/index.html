@@ -1,331 +1,1351 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QAIZ — Quantum-geometric Sector Heat</title>
+<title>QAIZ — 地域×セクター株式分析ターミナル</title>
 <style>
-  :root {
-    --bg: #070b14;
-    --panel: #0d1424;
-    --panel2: #111a30;
-    --border: #1d2a4a;
-    --text: #d7e1f5;
-    --dim: #7d8db0;
-    --hot: #ff5d5d;
-    --warm: #ffb347;
-    --cool: #4da3ff;
-    --cold: #3ddc97;
-    --accent: #8b7dff;
-    font-size: 15px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: radial-gradient(1200px 600px at 70% -10%, #14204017, transparent), var(--bg);
-    color: var(--text);
-    font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-    min-height: 100vh;
-    padding: 1.2rem;
-  }
-  header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
-  h1 { font-size: 1.35rem; letter-spacing: .06em; }
-  h1 .q { color: var(--accent); }
-  .sub { color: var(--dim); font-size: .8rem; }
-  #updated { margin-left: auto; color: var(--dim); font-size: .75rem; }
-  .grid { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1rem;
-  }
-  .panel h2 { font-size: .95rem; margin-bottom: .8rem; color: #aebcdd; letter-spacing: .04em; }
-  .sector {
-    display: grid;
-    grid-template-columns: 2.1rem minmax(7.5rem, 1fr) 5.2rem 3.4rem minmax(6rem, 1fr);
-    gap: .6rem;
-    align-items: center;
-    padding: .48rem .5rem;
-    border-radius: 8px;
-    margin-bottom: .3rem;
-    background: var(--panel2);
-    cursor: pointer;
-  }
-  .sector:hover { outline: 1px solid var(--border); }
-  .rank { color: var(--dim); font-variant-numeric: tabular-nums; text-align: center; }
-  .sname b { display: block; font-size: .88rem; }
-  .sname span { color: var(--dim); font-size: .68rem; }
-  .heatbar { height: 8px; border-radius: 4px; background: #1a2440; overflow: hidden; }
-  .heatbar i { display: block; height: 100%; border-radius: 4px; }
-  .heatval { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
-  .spark { width: 100%; height: 30px; }
-  .detail {
-    grid-column: 1 / -1;
-    display: none;
-    padding: .5rem .4rem 0;
-    color: var(--dim);
-    font-size: .74rem;
-    line-height: 1.7;
-  }
-  .sector.open .detail { display: block; }
-  .detail b { color: var(--text); font-weight: 600; }
-  .badge { display: inline-block; padding: .05rem .45rem; border-radius: 99px; font-size: .68rem; margin-left: .3rem; }
-  .bullish { background: #123c2c; color: var(--cold); }
-  .bearish { background: #401a22; color: var(--hot); }
-  .neutral { background: #232b45; color: var(--dim); }
-  .idx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .5rem; }
-  .idx {
-    background: var(--panel2);
-    border-radius: 8px;
-    padding: .55rem .6rem;
-    font-size: .78rem;
-  }
-  .idx .r { font-variant-numeric: tabular-nums; font-weight: 700; font-size: .9rem; }
-  .up { color: var(--cold); }
-  .down { color: var(--hot); }
-  .news-item { padding: .45rem 0; border-bottom: 1px solid #16203a; font-size: .8rem; }
-  .news-item a { color: var(--text); text-decoration: none; }
-  .news-item a:hover { color: var(--cool); }
-  .news-item .src { color: var(--dim); font-size: .68rem; }
-  #status { color: var(--dim); font-size: .85rem; padding: 2rem 0; text-align: center; }
-  button.refresh {
-    background: var(--accent); color: #0b0f1e; border: 0; border-radius: 8px;
-    padding: .45rem .9rem; font-weight: 700; cursor: pointer; font-size: .78rem;
-  }
-  footer { margin-top: 1.2rem; color: #4a5878; font-size: .68rem; line-height: 1.6; }
+:root{
+  --bg:#0a0d12; --panel:#111721; --panel2:#0e131c; --line:#1e2735;
+  --text:#d7dee9; --muted:#7b8798; --dim:#5c6779;
+  --accent:#4cc9f0; --accent2:#b892ff;
+  --pos:#16c784; --neg:#ea3943; --warn:#f0b429;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.5}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--pos)} .neg{color:var(--neg)} .muted{color:var(--muted)} .warn{color:var(--warn)}
+.small{font-size:11px}
+button,select,input{font-family:inherit;font-size:12px}
 
-  /* --- 量子OSパネル --- */
-  .qos { grid-column: 1 / -1; }
-  .basket { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 .8rem; }
-  .chip {
-    background: #16203c; border: 1px solid #263358; border-radius: 999px;
-    padding: .25rem .7rem; font-size: .78rem; font-weight: 600;
-  }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
-  .kpi { background: #101830; border: 1px solid #1e2a48; border-radius: 8px; padding: .55rem .7rem; }
-  .kpi .k { color: var(--dim); font-size: .66rem; text-transform: uppercase; letter-spacing: .04em; }
-  .kpi .v { font-size: 1.05rem; font-weight: 700; margin-top: .15rem; }
-  table.bench { width: 100%; border-collapse: collapse; font-size: .74rem; margin-top: .5rem; }
-  table.bench th, table.bench td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #1a2440; }
-  table.bench th { color: var(--dim); font-weight: 600; font-size: .66rem; text-transform: uppercase; }
-  table.bench td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .kind-classical { color: #7f8db0; }
-  .kind-quantum-sim { color: var(--accent); }
-  .kind-quantum-hardware { color: var(--hot); }
-  .verdict { border-radius: 8px; padding: .5rem .7rem; font-size: .76rem; line-height: 1.55; margin-top: .5rem; }
-  .verdict.query-model { background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.35); }
-  .verdict.none { background: rgba(127,141,176,.08); border: 1px solid #26314e; }
-  .verdict.unverified { background: rgba(255,176,32,.08); border: 1px solid rgba(255,176,32,.35); }
-  .verdict b { display: block; margin-bottom: .2rem; }
-  .fail { color: #6b7897; }
+header{position:sticky;top:0;z-index:50;background:linear-gradient(180deg,#0d121a,#0a0d12);border-bottom:1px solid var(--line)}
+.hbar{display:flex;align-items:center;gap:14px;padding:9px 16px;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.14em;font-size:15px;color:#fff}
+.brand span{color:var(--accent)}
+.tagline{color:var(--muted);font-size:11px;border-left:1px solid var(--line);padding-left:12px}
+.spacer{flex:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;font-size:11px;background:var(--panel2);white-space:nowrap}
+.chip b{font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+button.act{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:5px 12px;border-radius:6px;cursor:pointer}
+button.act:hover{border-color:var(--accent);color:var(--accent)}
+button.act:disabled{opacity:.5;cursor:default}
+
+nav{display:flex;gap:2px;padding:0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:9px 14px;cursor:pointer;white-space:nowrap;font-size:12.5px}
+nav button:hover{color:var(--text)}
+nav button.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{padding:14px 16px 60px;max-width:1900px;margin:0 auto}
+.grid{display:grid;gap:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.panel>h3{margin:0;padding:9px 12px;font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.panel>h3 .hint{font-weight:400;letter-spacing:0;font-size:10.5px;color:var(--dim)}
+.pad{padding:12px}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{position:sticky;top:0;background:var(--panel2);text-align:right;padding:6px 8px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;font-size:11px}
+th:first-child,td:first-child{text-align:left}
+th.l,td.l{text-align:left}
+th:hover{color:var(--accent)}
+th.sorted{color:var(--accent)}
+td{padding:5px 8px;text-align:right;border-bottom:1px solid #161d28;white-space:nowrap;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.l{font-family:var(--sans)}
+tbody tr:hover{background:#161d28}
+tbody tr.click{cursor:pointer}
+.scroll{overflow:auto;max-height:74vh}
+.scroll-x{overflow-x:auto}
+
+.tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10.5px;border:1px solid var(--line);color:var(--muted)}
+.tag.b{background:rgba(22,199,132,.13);border-color:rgba(22,199,132,.35);color:var(--pos)}
+.tag.s{background:rgba(234,57,67,.13);border-color:rgba(234,57,67,.35);color:var(--neg)}
+.tag.c{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.35);color:var(--warn)}
+
+.heatgrid{display:grid;gap:3px;padding:12px;overflow-x:auto}
+.hcell{border-radius:5px;padding:7px 8px;min-width:118px;cursor:pointer;border:1px solid transparent;transition:transform .08s}
+.hcell:hover{border-color:#fff3;transform:translateY(-1px)}
+.hcell .n{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hcell .v{font-size:15px;font-weight:700;font-family:var(--mono)}
+.hcell .s{font-size:10px;opacity:.8;font-family:var(--mono)}
+.hrow-label{font-size:11px;color:var(--muted);padding:7px 4px;align-self:center;white-space:nowrap}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px}
+.kv dt{color:var(--muted);white-space:nowrap}
+.kv dd{margin:0;text-align:right;font-family:var(--mono)}
+
+.bar{height:5px;background:#1b2432;border-radius:3px;overflow:hidden;min-width:60px}
+.bar>i{display:block;height:100%;border-radius:3px}
+
+.sig{border-left:3px solid var(--line);padding:6px 10px;margin-bottom:6px;background:var(--panel2);border-radius:0 5px 5px 0}
+.sig.bull{border-left-color:var(--pos)}
+.sig.bear{border-left-color:var(--neg)}
+.sig.caut{border-left-color:var(--warn)}
+.sig .t{font-weight:600;font-size:12px}
+.sig .d{color:var(--muted);font-size:11.5px;margin-top:2px}
+
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.filters select,.filters input{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:4px 7px}
+.filters input[type=number]{width:82px}
+.frow{display:flex;gap:5px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.frow button{background:none;border:none;color:var(--muted);cursor:pointer;padding:0 3px}
+.frow button:hover{color:var(--neg)}
+
+.preset{border:1px solid var(--line);background:var(--panel2);border-radius:7px;padding:8px 10px;cursor:pointer;text-align:left}
+.preset:hover{border-color:var(--accent)}
+.preset.on{border-color:var(--accent);background:rgba(76,201,240,.08)}
+.preset b{display:block;font-size:12px;margin-bottom:2px}
+.preset span{color:var(--muted);font-size:10.5px;line-height:1.4;display:block}
+
+.loading{padding:40px;text-align:center;color:var(--muted)}
+.err{padding:12px;color:var(--neg);font-size:12px}
+.note{color:var(--dim);font-size:10.5px;padding:8px 12px;border-top:1px solid var(--line);line-height:1.6}
+
+.newsitem{padding:6px 12px;border-bottom:1px solid #161d28;font-size:12px}
+.newsitem .src{color:var(--dim);font-size:10.5px}
+
+#modal{position:fixed;inset:0;background:rgba(4,6,10,.82);display:none;z-index:100;overflow:auto;padding:24px}
+#modal.on{display:block}
+.sheet{max-width:1280px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.sheet-h{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2;border-radius:12px 12px 0 0;flex-wrap:wrap}
+.sheet-h h2{margin:0;font-size:17px}
+.close{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:28px;height:28px;cursor:pointer}
+.close:hover{color:var(--neg);border-color:var(--neg)}
 </style>
 </head>
 <body>
 <header>
-  <h1><span class="q">Q</span>AIZ <span class="sub">/ Quantum Advantage Instrumentation Zone</span></h1>
-  <span id="updated"></span>
-</header>
-
-<div id="status">読み込み中…</div>
-
-<div class="grid" id="main" style="display:none">
-  <section class="panel qos" id="qos-panel" style="display:none">
-    <h2>⚛️ 量子OS <span class="sub">— 基数制約付きバスケット選択 (NP困難) + 振幅推定によるテールリスク</span></h2>
-    <div id="qos"></div>
-  </section>
-  <section class="panel">
-    <h2>🔥 セクター・ヒートランキング <span class="sub">(モメンタム × 量子情報幾何 × Hurst × AIセンチメント)</span></h2>
-    <div id="sectors"></div>
-  </section>
-  <div style="display:flex; flex-direction:column; gap:1rem;">
-    <section class="panel">
-      <h2>🌍 世界市場ヒートマップ</h2>
-      <div class="idx-grid" id="indices"></div>
-    </section>
-    <section class="panel">
-      <h2>📰 マーケットニュース <span class="sub">(RSS + GDELT)</span></h2>
-      <div id="news"></div>
-    </section>
+  <div class="hbar">
+    <div class="brand">QA<span>I</span>Z</div>
+    <div class="tagline">地域 × セクター 株式分析ターミナル</div>
+    <div id="regimechips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div class="spacer"></div>
+    <div id="stamp" class="small muted"></div>
+    <button class="act" id="refresh">更新</button>
   </div>
-</div>
-
-<footer>
-  データ: Yahoo Finance (非公式API) / Stooq / 各社RSS / GDELT — すべてキー不要の無料ソース。
-  AI: Cloudflare Workers AI (Meta Llama, 非Google)。
-  数理: Fubini-Study 距離・量子忠実度・QFI近似 (量子情報幾何) + Hurst指数・スペクトル傾き (宇宙論的時系列解析)。
-  <br>量子OS: 状態ベクトルQVM (TypeScript・依存ゼロ) 上の QAOA+ (XYミキサー) と IQAE。
-  「量子情報幾何」は<b>量子計算ではなく古典統計量</b>であり、優位性の主張には一切使っていない。
-  優位性として計上するのはクエリ計算量と解の品質のみ (シミュレータの実行時間は<b>優位性ではない</b>)。
-  <br>⚠️ 本ツールは研究・情報提供目的であり、投資助言ではありません。投資判断は自己責任で。
-</footer>
+  <nav id="nav"></nav>
+</header>
+<main id="view"><div class="loading">読み込み中…</div></main>
+<div id="modal"><div class="sheet" id="sheet"></div></div>
 
 <script>
-const heatColor = h =>
-  h >= 70 ? "var(--hot)" : h >= 55 ? "var(--warm)" : h >= 40 ? "var(--cool)" : "var(--cold)";
+"use strict";
+/* ------------------------------------------------------------------ *
+ * QAIZ ダッシュボード
+ * ビルド不要の素の JS。Worker の /api/* を叩いて描画するだけ。
+ * 数値は「取れなかった = null」を必ず "—" として出す。0 と混ぜない。
+ * ------------------------------------------------------------------ */
 
-const pct = x => (x >= 0 ? "+" : "") + (100 * x).toFixed(1) + "%";
+const S = { overview:null, universe:null, presets:null, tab:"overview", cache:{} };
 
-function sparkSvg(points, color) {
-  if (!points || points.length < 2) return "";
-  const w = 120, h = 30;
-  const step = w / (points.length - 1);
-  const d = points.map((p, i) =>
-    (i === 0 ? "M" : "L") + (i * step).toFixed(1) + "," + (h - 2 - p * (h - 4)).toFixed(1)
-  ).join(" ");
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6"/></svg>`;
+/* ---------- フォーマッタ ---------- */
+const isN = (x) => typeof x === "number" && isFinite(x);
+const DASH = '<span class="muted">—</span>';
+
+function pct(x, d = 2) {
+  if (!isN(x)) return DASH;
+  const v = (x * 100).toFixed(d);
+  const cls = x > 0 ? "pos" : x < 0 ? "neg" : "muted";
+  return `<span class="${cls}">${x > 0 ? "+" : ""}${v}%</span>`;
+}
+function pctPlain(x, d = 1) { return isN(x) ? `${(x * 100).toFixed(d)}%` : "—"; }
+function num(x, d = 2) { return isN(x) ? x.toLocaleString("ja-JP", { minimumFractionDigits: d, maximumFractionDigits: d }) : DASH; }
+function mult(x, d = 1) { return isN(x) ? `${x.toFixed(d)}<span class="muted small">倍</span>` : DASH; }
+function score(x) {
+  if (!isN(x)) return DASH;
+  const c = x >= 70 ? "pos" : x <= 30 ? "neg" : "";
+  return `<span class="${c}">${x.toFixed(0)}</span>`;
+}
+function bigNum(x) {
+  if (!isN(x)) return DASH;
+  const a = Math.abs(x);
+  if (a >= 1e12) return (x / 1e12).toFixed(2) + "T";
+  if (a >= 1e9) return (x / 1e9).toFixed(1) + "B";
+  if (a >= 1e6) return (x / 1e6).toFixed(1) + "M";
+  return x.toLocaleString("ja-JP");
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function when(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso).slice(0, 16);
+  return d.toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-function renderSectors(sectors) {
-  const el = document.getElementById("sectors");
-  el.innerHTML = sectors.map((s, i) => {
-    const c = heatColor(s.heat);
-    const sent = s.sentiment
-      ? `<span class="badge ${s.sentiment.label}">${s.sentiment.label} ${s.sentiment.score >= 0 ? "+" : ""}${s.sentiment.score} (${s.sentiment.method === "workers-ai" ? "AI" : "lex"})</span>`
-      : `<span class="badge neutral">no news</span>`;
-    const regime = s.cosmo.hurst > 0.55 ? "トレンド持続" : s.cosmo.hurst < 0.45 ? "平均回帰" : "中立";
-    const transition = s.quantum.fubiniStudy > 0.9 ? " ⚡レジーム転換の兆候" : "";
-    return `<div class="sector" onclick="this.classList.toggle('open')">
-      <div class="rank">${i + 1}</div>
-      <div class="sname"><b>${s.sector.nameJa}</b><span>${s.sector.symbol} · ${s.sector.nameEn}</span></div>
-      <div class="heatbar"><i style="width:${s.heat}%;background:${c}"></i></div>
-      <div class="heatval" style="color:${c}">${s.heat.toFixed(0)}</div>
-      <div>${sparkSvg(s.spark, c)}</div>
-      <div class="detail">
-        <b>モメンタム</b> 1週 ${pct(s.momentum.r1w)} / 1ヶ月 ${pct(s.momentum.r1m)} / 3ヶ月 ${pct(s.momentum.r3m)} / ボラ調整 ${s.momentum.volAdj.toFixed(2)}<br>
-        <b>量子情報幾何</b> 忠実度 F=${s.quantum.fidelity.toFixed(3)} / Fubini-Study距離 ${s.quantum.fubiniStudy.toFixed(3)} rad${transition} / QFI≈${s.quantum.qfiProxy.toFixed(3)} / エントロピー ${s.quantum.entropy.toFixed(3)}<br>
-        <b>宇宙論スペクトル</b> Hurst=${s.cosmo.hurst.toFixed(3)} (${regime}) / スペクトル傾き ${s.cosmo.spectralSlope.toFixed(2)}<br>
-        <b>センチメント</b> ${sent} 対象ヘッドライン ${s.sentiment ? s.sentiment.headlineCount : 0} 件
+/* リターンを色に。±6% で飽和させる (それ以上は色が潰れて情報にならない) */
+function retColor(x) {
+  if (!isN(x)) return "#151b25";
+  const t = Math.max(-1, Math.min(1, x / 0.06));
+  const a = 0.10 + Math.abs(t) * 0.42;
+  return t >= 0 ? `rgba(22,199,132,${a})` : `rgba(234,57,67,${a})`;
+}
+function scoreColor(x) {
+  if (!isN(x)) return "#151b25";
+  const t = Math.max(-1, Math.min(1, (x - 50) / 30));
+  const a = 0.10 + Math.abs(t) * 0.42;
+  return t >= 0 ? `rgba(22,199,132,${a})` : `rgba(234,57,67,${a})`;
+}
+function corrColor(x) {
+  const t = Math.max(-1, Math.min(1, x));
+  return t >= 0 ? `rgba(76,201,240,${0.06 + t * 0.62})` : `rgba(240,180,41,${0.06 + (-t) * 0.62})`;
+}
+
+/* ---------- API ---------- */
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (res.status === 503) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.message || "データ生成中");
+  }
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ---------- スパークライン ---------- */
+function spark(values, w = 92, h = 24) {
+  const v = (values || []).filter(isN);
+  if (v.length < 3) return "";
+  const mn = Math.min(...v), mx = Math.max(...v);
+  const rng = mx - mn || 1;
+  const pts = v.map((x, i) => `${(i / (v.length - 1)) * w},${h - ((x - mn) / rng) * h}`).join(" ");
+  const up = v[v.length - 1] >= v[0];
+  const c = up ? "#16c784" : "#ea3943";
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="vertical-align:middle">
+    <polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.3"/></svg>`;
+}
+
+/* ---------- ソート可能テーブル ---------- */
+/* cols: [{k:'field.path', t:'見出し', f:fmtFn, l:true(左寄せ), w:'幅'}] */
+function table(rows, cols, opts = {}) {
+  const id = "t" + Math.random().toString(36).slice(2, 8);
+  const st = { key: opts.sortKey || null, dir: opts.sortDir || "desc" };
+
+  function get(r, k) { return k.split(".").reduce((a, p) => (a == null ? null : a[p]), r); }
+  function render() {
+    let data = [...rows];
+    if (st.key) {
+      data.sort((a, b) => {
+        const av = get(a, st.key), bv = get(b, st.key);
+        const an = isN(av) ? av : null, bn = isN(bv) ? bv : null;
+        if (an === null && bn === null) return String(av ?? "").localeCompare(String(bv ?? ""));
+        if (an === null) return 1;
+        if (bn === null) return -1;
+        return st.dir === "asc" ? an - bn : bn - an;
+      });
+    }
+    const head = cols.map((c) => `<th class="${c.l ? "l" : ""} ${st.key === c.k ? "sorted" : ""}" data-k="${c.k}" title="${esc(c.title || c.t)}">${c.t}${st.key === c.k ? (st.dir === "asc" ? " ▲" : " ▼") : ""}</th>`).join("");
+    const body = data.map((r) => {
+      const sym = get(r, "instrument.symbol") ?? r.symbol ?? get(r, "proxySymbol");
+      return `<tr class="${sym ? "click" : ""}" ${sym ? `data-sym="${esc(sym)}"` : ""}>` +
+        cols.map((c) => `<td class="${c.l ? "l" : ""}">${c.f ? c.f(get(r, c.k), r) : (get(r, c.k) ?? DASH)}</td>`).join("") + "</tr>";
+    }).join("");
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body}</tbody>`;
+    bind();
+  }
+  function bind() {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.querySelectorAll("th").forEach((th) => th.onclick = () => {
+      const k = th.dataset.k;
+      if (st.key === k) st.dir = st.dir === "desc" ? "asc" : "desc";
+      else { st.key = k; st.dir = "desc"; }
+      render();
+    });
+    el.querySelectorAll("tr[data-sym]").forEach((tr) => tr.onclick = () => openSymbol(tr.dataset.sym));
+  }
+  setTimeout(render, 0);
+  return `<div class="scroll"><table id="${id}"></table></div>`;
+}
+
+/* ================================================================== *
+ * タブ: 概況
+ * ================================================================== */
+function viewOverview() {
+  const d = S.overview;
+  if (!d) return `<div class="loading">読み込み中…</div>`;
+  return `
+  <div class="grid" style="grid-template-columns:minmax(320px,1fr) minmax(320px,1fr) minmax(300px,.85fr)">
+    ${panelRegime(d.regime)}
+    ${panelBreadth(d.breadth)}
+    ${panelMacro(d.macro)}
+  </div>
+  <div style="height:12px"></div>
+  ${panelHeatmap(d.sectors)}
+  <div style="height:12px"></div>
+  <div class="grid" style="grid-template-columns:1.5fr 1fr">
+    ${panelLeaders(d.leaders, d.laggards)}
+    ${panelNews(d.news)}
+  </div>
+  <div style="height:12px"></div>
+  ${panelPipeline(d.meta, d.generatedAt)}`;
+}
+
+function panelRegime(r) {
+  if (!r) return `<div class="panel"><h3>相場レジーム</h3><div class="pad muted">判定に必要な指数データが未取得です。</div></div>`;
+  const t = { bull: ["上昇基調", "pos"], bear: ["下降基調", "neg"], range: ["レンジ", "warn"] }[r.trend];
+  const v = { low: ["低ボラ", "pos"], normal: ["平常", ""], elevated: ["警戒", "warn"], stress: ["ストレス", "neg"] }[r.volatility];
+  const a = { "risk-on": ["リスクオン", "pos"], neutral: ["中立", ""], "risk-off": ["リスクオフ", "neg"] }[r.riskAppetite];
+  return `<div class="panel">
+    <h3>相場レジーム <span class="hint">3軸を別々に判定 / 予測ではなく現状の記述</span></h3>
+    <div class="pad">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span class="chip"><b class="${t[1]}">${t[0]}</b><span class="muted small">確信度 ${(r.trendConfidence * 100).toFixed(0)}%</span></span>
+        <span class="chip"><b class="${v[1]}">${v[0]}</b></span>
+        <span class="chip"><b class="${a[1]}">${a[0]}</b></span>
       </div>
+      <table style="font-size:11.5px">
+        ${r.evidence.map((e) => `<tr><td class="l" style="color:var(--muted);border:none;padding:3px 0;font-family:var(--sans)">${esc(e.name)}</td>
+          <td class="l" style="border:none;padding:3px 0 3px 10px;font-family:var(--sans);white-space:normal">${esc(e.reading)}</td></tr>`).join("")}
+      </table>
+      <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+        ${r.playbook.map((p) => `<div class="small" style="color:var(--muted);margin-bottom:4px">▸ ${esc(p)}</div>`).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+function panelBreadth(bs) {
+  if (!bs || !bs.length) return `<div class="panel"><h3>市場の幅</h3><div class="pad muted">データ不足</div></div>`;
+  const lbl = { "broad-rally": ["広い上昇", "pos"], "narrow-rally": ["狭い上昇", "warn"], mixed: ["まちまち", ""], "broad-selloff": ["広い下落", "neg"], "narrow-selloff": ["狭い下落", "warn"] };
+  return `<div class="panel">
+    <h3>市場の幅 <span class="hint">指数の裏で何銘柄が上げているか</span></h3>
+    <div class="scroll-x"><table>
+      <thead><tr><th class="l">範囲</th><th>銘柄</th><th>50日線超</th><th>200日線超</th><th>騰落</th><th>平均RSI</th><th class="l">判定</th></tr></thead>
+      <tbody>${bs.map((b) => {
+        const l = lbl[b.label] || ["", ""];
+        return `<tr><td class="l">${esc(b.scope)}</td><td>${b.count}</td>
+          <td>${isN(b.pctAbove50dma) ? b.pctAbove50dma.toFixed(0) + "%" : DASH}</td>
+          <td>${isN(b.pctAbove200dma) ? `<span class="${b.pctAbove200dma >= 55 ? "pos" : b.pctAbove200dma <= 40 ? "neg" : ""}">${b.pctAbove200dma.toFixed(0)}%</span>` : DASH}</td>
+          <td>${b.advancers}/${b.decliners}</td>
+          <td>${num(b.meanRsi, 1)}</td>
+          <td class="l"><span class="tag ${l[1] === "pos" ? "b" : l[1] === "neg" ? "s" : "c"}">${l[0]}</span></td></tr>`;
+      }).join("")}</tbody>
+    </table></div>
+    <div class="note">新高値/新安値は「52週レンジ内の位置が端 2% 以内」で近似している (日次の高値更新履歴は保持していないため)。</div>
+  </div>`;
+}
+
+function panelMacro(macro) {
+  const rows = (macro && macro.rows) || [];
+  return `<div class="panel">
+    <h3>指数・マクロ <span class="hint">レジーム判定の入力</span></h3>
+    <div class="scroll" style="max-height:340px"><table>
+      <thead><tr><th class="l">銘柄</th><th>直近</th><th>1日</th><th>1ヶ月</th><th>年初来</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr class="click" data-sym="${esc(r["instrument.symbol"])}">
+        <td class="l">${esc(r["instrument.nameJa"])}</td>
+        <td>${num(r["price.last"], 2)}</td>
+        <td>${pct(r["price.r1d"])}</td>
+        <td>${pct(r["price.r1m"])}</td>
+        <td>${pct(r["price.ytd"])}</td></tr>`).join("")}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function panelHeatmap(sectors) {
+  const regions = [...new Set(sectors.map((s) => s.region))];
+  const metric = S.heatMetric || "heat";
+  const opts = [["heat", "ヒートスコア"], ["r1w", "1週リターン"], ["r1m", "1ヶ月リターン"], ["r3m", "3ヶ月リターン"], ["r12m", "12ヶ月リターン"], ["medianForwardPE", "予想PER中央値"], ["medianPB", "PBR中央値"], ["medianROE", "ROE中央値"], ["medianDividendYield", "配当利回り中央値"], ["meanTechnical", "テクニカル平均"], ["pctAbove200dma", "200日線超え比率"]];
+
+  const body = regions.map((reg) => {
+    const cells = sectors.filter((s) => s.region === reg);
+    const inner = cells.map((s) => {
+      const v = s[metric];
+      const isRet = ["r1w", "r1m", "r3m", "r12m"].includes(metric);
+      const isScore = ["heat", "meanTechnical"].includes(metric);
+      const isPctPoint = metric === "pctAbove200dma";
+      const bg = isRet ? retColor(v) : isScore ? scoreColor(v) : isPctPoint ? scoreColor(v) : metric === "medianROE" || metric === "medianDividendYield" ? retColor(isN(v) ? v - 0.03 : null) : scoreColor(isN(v) ? 100 - Math.min(100, v * 2.2) : null);
+      const disp = !isN(v) ? "—" : isRet || metric === "medianROE" || metric === "medianDividendYield" ? `${(v * 100).toFixed(1)}%` : isScore || isPctPoint ? v.toFixed(0) : `${v.toFixed(1)}x`;
+      return `<div class="hcell" style="background:${bg}" data-sym="${esc(s.proxySymbol || "")}" title="${esc(s.nameJa)} (${esc(s.region)}) — 構成${s.memberCount}銘柄">
+        <div class="n">${esc(s.nameJa.replace(/^(米国|日本|欧州)\s*/, ""))}</div>
+        <div class="v">${disp}</div>
+        <div class="s">${isN(s.r1m) ? (s.r1m * 100).toFixed(1) + "%" : "—"} / 1M</div>
+      </div>`;
+    }).join("");
+    return `<div class="hrow-label">${esc(regionName(reg))}</div><div style="display:flex;gap:3px;flex-wrap:wrap">${inner}</div>`;
+  }).join("");
+
+  return `<div class="panel">
+    <h3>地域 × セクター ヒートマップ
+      <select id="heatmetric" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+        ${opts.map(([k, t]) => `<option value="${k}" ${k === metric ? "selected" : ""}>${t}</option>`).join("")}
+      </select>
+    </h3>
+    <div class="heatgrid" style="grid-template-columns:auto 1fr">${body}</div>
+    <div class="note">ヒートスコアは 3ヶ月/1ヶ月リターン・テクニカル平均・200日線超え比率・予想PER を <b>地域内で</b> 標準化して合成したもの [0-100]。地域内で標準化するのは、通貨と市場水準の差を落とすため。クリックで代表ETFの詳細へ。</div>
+  </div>`;
+}
+
+function regionName(r) {
+  const u = S.universe;
+  const m = u && u.regions.find((x) => x.id === r);
+  return m ? m.nameJa : r;
+}
+
+function panelLeaders(top, bottom) {
+  const cols = [
+    { k: "instrument.nameJa", t: "銘柄", l: true, f: (v, r) => `${esc(v)} <span class="muted small mono">${esc(r["instrument.symbol"])}</span>` },
+    { k: "instrument.region", t: "地域", l: true, f: (v) => `<span class="tag">${esc(v)}</span>` },
+    { k: "factors.composite", t: "総合", f: score, title: "5ファクター加重合成 [0-100]" },
+    { k: "factors.value", t: "割安", f: score },
+    { k: "factors.quality", t: "質", f: score },
+    { k: "factors.momentum", t: "勢い", f: score },
+    { k: "factors.growth", t: "成長", f: score },
+    { k: "factors.lowVol", t: "低ボラ", f: score },
+    { k: "price.r3m", t: "3ヶ月", f: pct },
+    { k: "fundamentals.forwardPE", t: "予想PER", f: (v) => mult(v) },
+    { k: "technicals.rsi14", t: "RSI", f: (v) => num(v, 0) },
+  ];
+  return `<div class="panel">
+    <h3>ファクター総合ランキング <span class="hint">上位25 / 下位10</span></h3>
+    ${table([...(top.rows || []), ...(bottom.rows || [])], cols, { sortKey: "factors.composite", sortDir: "desc" })}
+    <div class="note">割安・質・成長は<b>セクター内</b>の相対評価、勢い・低ボラは<b>ユニバース全体</b>の相対評価。欠損の多い銘柄には総合スコアを付けていない (カバレッジ30%未満は算出しない)。</div>
+  </div>`;
+}
+
+function panelNews(news) {
+  return `<div class="panel">
+    <h3>ニュース <span class="hint">RSS / センチメント材料</span></h3>
+    <div class="scroll" style="max-height:420px">
+      ${(news || []).map((n) => `<div class="newsitem">
+        <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>
+        <div class="src">${esc(n.source)} · ${esc(n.pubDate || "")}</div></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function panelPipeline(m, generatedAt) {
+  if (!m) return "";
+  return `<div class="panel">
+    <h3>データ取得の状態 <span class="hint">何が取れていて何が取れていないか</span></h3>
+    <div class="pad" style="display:flex;gap:24px;flex-wrap:wrap">
+      <dl class="kv" style="min-width:260px">
+        <dt>最終更新</dt><dd>${when(generatedAt)}</dd>
+        <dt>ユニバース</dt><dd>${m.covered} / ${m.universeSize} 銘柄</dd>
+        <dt>今回のシャード</dt><dd>${m.shard + 1} / ${m.shards}</dd>
+        <dt>外部フェッチ数</dt><dd>${m.fetches}</dd>
+        <dt>処理時間</dt><dd>${m.elapsedMs} ms</dd>
+        <dt>データソース</dt><dd>${m.dataSources.join(", ")}</dd>
+        <dt>AIモデル</dt><dd class="small">${esc(m.aiModel)}</dd>
+      </dl>
+      <div style="flex:1;min-width:280px">
+        <div class="muted small" style="margin-bottom:4px">直近の警告 (${m.errors.length}件)</div>
+        <div class="mono small" style="color:var(--muted);max-height:150px;overflow:auto">
+          ${m.errors.length ? m.errors.map((e) => `<div>${esc(e)}</div>`).join("") : "<div>なし</div>"}
+        </div>
+      </div>
+    </div>
+    <div class="note">ユニバースは 15 分ごとに 1 シャードずつ更新される (全周 約2時間)。銘柄ごとに鮮度が違うため、各レコードの as-of を個別詳細に表示している。<b>ファンダメンタルズが取得できなかった銘柄は推定値で埋めず、空欄のままにしている。</b></div>
+  </div>`;
+}
+
+/* ================================================================== *
+ * タブ: セクター
+ * ================================================================== */
+function viewSectors() {
+  const d = S.overview;
+  const regions = [...new Set(d.sectors.map((s) => s.region))];
+  const sel = S.secRegion || "ALL";
+  const rows = sel === "ALL" ? d.sectors : d.sectors.filter((s) => s.region === sel);
+  const cols = [
+    { k: "nameJa", t: "セクター", l: true, f: (v, r) => `${esc(v)} ${r.proxySymbol ? `<span class="muted small mono">${esc(r.proxySymbol)}</span>` : ""}` },
+    { k: "region", t: "地域", l: true, f: (v) => `<span class="tag">${esc(v)}</span>` },
+    { k: "memberCount", t: "銘柄数", f: (v) => v },
+    { k: "heat", t: "ヒート", f: score, title: "地域内で標準化した総合ヒート [0-100]" },
+    { k: "r1w", t: "1週", f: pct },
+    { k: "r1m", t: "1ヶ月", f: pct },
+    { k: "r3m", t: "3ヶ月", f: pct },
+    { k: "r12m", t: "12ヶ月", f: pct },
+    { k: "medianPE", t: "PER", f: (v) => mult(v) },
+    { k: "medianForwardPE", t: "予想PER", f: (v) => mult(v) },
+    { k: "medianPB", t: "PBR", f: (v) => mult(v, 2) },
+    { k: "medianEvEbitda", t: "EV/EBITDA", f: (v) => mult(v) },
+    { k: "medianROE", t: "ROE", f: (v) => (isN(v) ? pctPlain(v) : DASH) },
+    { k: "medianDividendYield", t: "配当", f: (v) => (isN(v) ? pctPlain(v, 2) : DASH) },
+    { k: "medianRevenueGrowth", t: "増収率", f: (v) => pct(v, 1) },
+    { k: "meanTechnical", t: "テクニカル", f: score },
+    { k: "meanRsi", t: "RSI", f: (v) => num(v, 0) },
+    { k: "pctAbove200dma", t: "200日線超", f: (v) => (isN(v) ? v.toFixed(0) + "%" : DASH) },
+    { k: "spark", t: "60日", f: (v) => spark(v) },
+  ];
+  return `<div class="panel">
+    <h3>地域 × セクター 一覧
+      <select id="secregion" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+        <option value="ALL">全地域</option>
+        ${regions.map((r) => `<option value="${r}" ${r === sel ? "selected" : ""}>${esc(regionName(r))}</option>`).join("")}
+      </select>
+    </h3>
+    ${table(rows, cols, { sortKey: "heat", sortDir: "desc" })}
+    <div class="note">リターンとテクニカルは<b>代表ETF</b>から、バリュエーション (PER/PBR/ROE等) は<b>構成銘柄の中央値</b>から算出。ETF にはファンダメンタルズが無いため、この 2 つは出所が異なる。中央値を使うのは、1銘柄の極端な倍率で全体が歪むのを避けるため。</div>
+  </div>`;
+}
+
+/* ================================================================== *
+ * タブ: スクリーナー
+ * ================================================================== */
+const FIELD_CHOICES = [
+  ["fundamentals.trailingPE", "PER (実績)", "x"],
+  ["fundamentals.forwardPE", "PER (予想)", "x"],
+  ["fundamentals.priceToBook", "PBR", "x"],
+  ["fundamentals.priceToSales", "PSR", "x"],
+  ["fundamentals.evToEbitda", "EV/EBITDA", "x"],
+  ["fundamentals.pegRatio", "PEG", "x"],
+  ["fundamentals.dividendYield", "配当利回り", "r"],
+  ["fundamentals.payoutRatio", "配当性向", "r"],
+  ["fundamentals.returnOnEquity", "ROE", "r"],
+  ["fundamentals.returnOnAssets", "ROA", "r"],
+  ["fundamentals.operatingMargin", "営業利益率", "r"],
+  ["fundamentals.grossMargin", "粗利益率", "r"],
+  ["fundamentals.revenueGrowth", "売上成長率", "r"],
+  ["fundamentals.earningsGrowth", "利益成長率", "r"],
+  ["fundamentals.debtToEquity", "D/Eレシオ(%)", "n"],
+  ["fundamentals.marketCap", "時価総額", "n"],
+  ["price.r1m", "1ヶ月リターン", "r"],
+  ["price.r3m", "3ヶ月リターン", "r"],
+  ["price.r12m", "12ヶ月リターン", "r"],
+  ["price.r12m1m", "12-1モメンタム", "r"],
+  ["price.rangePosition52w", "52週レンジ位置", "r"],
+  ["price.drawdownFrom52wHigh", "52週高値からの下落", "r"],
+  ["price.volumeRatio", "出来高比", "n"],
+  ["technicals.rsi14", "RSI(14)", "n"],
+  ["technicals.compositeScore", "テクニカル総合", "n"],
+  ["technicals.adx.adx", "ADX(14)", "n"],
+  ["technicals.atrPercent", "ATR%", "r"],
+  ["risk.vol252", "年率ボラ", "r"],
+  ["risk.beta", "ベータ", "n"],
+  ["risk.sharpe", "シャープ", "n"],
+  ["risk.maxDrawdown", "最大DD", "r"],
+  ["risk.var95", "VaR95(日次)", "r"],
+  ["consensus.recommendationMean", "レーティング平均", "n"],
+  ["consensus.upsideToTarget", "目標株価乖離", "r"],
+  ["consensus.analystCount", "アナリスト数", "n"],
+  ["factors.composite", "ファクター総合", "n"],
+  ["factors.value", "割安スコア", "n"],
+  ["factors.quality", "質スコア", "n"],
+  ["factors.momentum", "勢いスコア", "n"],
+  ["factors.growth", "成長スコア", "n"],
+  ["factors.lowVol", "低ボラスコア", "n"],
+];
+const OPS = [["gte", "≥"], ["lte", "≤"], ["gt", ">"], ["lt", "<"], ["between", "範囲"], ["exists", "取得済"], ["missing", "欠損"]];
+
+let SCREEN = { filters: [], regions: [], sectors: [], roles: ["constituent"], sort: "factors.composite", dir: "desc", preset: null, result: null, running: false };
+
+function viewScreener() {
+  const u = S.universe;
+  const presets = (S.presets && S.presets.presets) || [];
+  return `
+  <div class="panel">
+    <h3>プリセット <span class="hint">実務でよく使う条件の組み合わせ</span></h3>
+    <div class="pad" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">
+      ${presets.map((p) => `<button class="preset ${SCREEN.preset === p.id ? "on" : ""}" data-preset="${p.id}">
+        <b>${esc(p.nameJa)}</b><span>${esc(p.description)}</span></button>`).join("")}
+    </div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="panel">
+    <h3>条件</h3>
+    <div class="filters">
+      <span class="muted small">地域</span>
+      <select id="sc-region" multiple size="1" style="min-width:110px">
+        ${(u ? u.regions : []).map((r) => `<option value="${r.id}" ${SCREEN.regions.includes(r.id) ? "selected" : ""}>${esc(r.nameJa)}</option>`).join("")}
+      </select>
+      <span class="muted small">セクター</span>
+      <select id="sc-sector" multiple size="1" style="min-width:120px">
+        ${(u ? u.sectors : []).map((s) => `<option value="${s.id}" ${SCREEN.sectors.includes(s.id) ? "selected" : ""}>${esc(s.nameJa)}</option>`).join("")}
+      </select>
+      <span class="muted small">種別</span>
+      <select id="sc-role">
+        <option value="constituent" ${SCREEN.roles[0] === "constituent" ? "selected" : ""}>個別株</option>
+        <option value="sector-proxy" ${SCREEN.roles[0] === "sector-proxy" ? "selected" : ""}>セクターETF</option>
+        <option value="" ${!SCREEN.roles.length ? "selected" : ""}>すべて</option>
+      </select>
+      <button class="act" id="sc-add">＋ 条件を追加</button>
+      <button class="act" id="sc-run">実行</button>
+      <button class="act" id="sc-clear">クリア</button>
+      <span class="spacer"></span>
+      <span id="sc-count" class="muted small"></span>
+    </div>
+    <div class="filters" id="sc-filters" style="border-bottom:${SCREEN.filters.length ? "1px solid var(--line)" : "none"}">
+      ${SCREEN.filters.map((f, i) => filterRow(f, i)).join("")}
+    </div>
+    <div id="sc-result">${SCREEN.result ? screenerTable(SCREEN.result) : `<div class="loading">条件を選んで「実行」を押してください。プリセットはクリックで即実行されます。</div>`}</div>
+    <div class="note">欠損はどの比較条件にも一致しない。「PER 15倍以下」に PER 不明の銘柄は入らない (スクリーニングでいちばん多い事故なので、例外なく除外している)。ソートでも欠損は常に末尾。</div>
+  </div>`;
+}
+
+function filterRow(f, i) {
+  const meta = FIELD_CHOICES.find((c) => c[0] === f.field);
+  const unit = meta ? meta[2] : "n";
+  const showVal = f.op !== "exists" && f.op !== "missing";
+  return `<div class="frow" data-i="${i}">
+    <select data-role="field">${FIELD_CHOICES.map((c) => `<option value="${c[0]}" ${c[0] === f.field ? "selected" : ""}>${c[1]}</option>`).join("")}</select>
+    <select data-role="op">${OPS.map((o) => `<option value="${o[0]}" ${o[0] === f.op ? "selected" : ""}>${o[1]}</option>`).join("")}</select>
+    ${showVal ? `<input type="number" step="any" data-role="v" value="${f.disp ?? ""}" placeholder="値">` : ""}
+    ${f.op === "between" ? `<input type="number" step="any" data-role="v2" value="${f.disp2 ?? ""}" placeholder="上限">` : ""}
+    ${showVal && unit === "r" ? `<span class="muted small">%</span>` : ""}
+    <button data-role="del" title="削除">✕</button>
+  </div>`;
+}
+
+function screenerTable(res) {
+  const cols = [
+    { k: "instrument.symbol", t: "コード", l: true, f: (v) => `<span class="mono">${esc(v)}</span>` },
+    { k: "instrument.nameJa", t: "銘柄", l: true, f: (v) => esc(v) },
+    { k: "instrument.region", t: "地域", l: true, f: (v) => `<span class="tag">${esc(v)}</span>` },
+    { k: "instrument.sector", t: "セクター", l: true, f: (v) => `<span class="tag">${esc(sectorName(v))}</span>` },
+    { k: "price.last", t: "株価", f: (v, r) => `${num(v, 2)} <span class="muted small">${esc(r["price.currency"] || "")}</span>` },
+    { k: "price.r1m", t: "1ヶ月", f: pct },
+    { k: "price.r3m", t: "3ヶ月", f: pct },
+    { k: "price.r12m", t: "12ヶ月", f: pct },
+    { k: "fundamentals.trailingPE", t: "PER", f: (v) => mult(v) },
+    { k: "fundamentals.forwardPE", t: "予想PER", f: (v) => mult(v) },
+    { k: "fundamentals.priceToBook", t: "PBR", f: (v) => mult(v, 2) },
+    { k: "fundamentals.evToEbitda", t: "EV/EBITDA", f: (v) => mult(v) },
+    { k: "fundamentals.dividendYield", t: "配当", f: (v) => (isN(v) ? pctPlain(v, 2) : DASH) },
+    { k: "fundamentals.returnOnEquity", t: "ROE", f: (v) => (isN(v) ? pctPlain(v) : DASH) },
+    { k: "fundamentals.operatingMargin", t: "営業率", f: (v) => (isN(v) ? pctPlain(v) : DASH) },
+    { k: "fundamentals.revenueGrowth", t: "増収率", f: (v) => pct(v, 1) },
+    { k: "fundamentals.debtToEquity", t: "D/E", f: (v) => num(v, 0) },
+    { k: "technicals.rsi14", t: "RSI", f: (v) => num(v, 0) },
+    { k: "technicals.compositeScore", t: "テク", f: score },
+    { k: "risk.vol252", t: "ボラ", f: (v) => (isN(v) ? pctPlain(v, 0) : DASH) },
+    { k: "risk.beta", t: "β", f: (v) => num(v, 2) },
+    { k: "risk.maxDrawdown", t: "最大DD", f: (v) => pct(v, 0) },
+    { k: "consensus.upsideToTarget", t: "目標乖離", f: pct },
+    { k: "factors.composite", t: "総合", f: score },
+  ];
+  return `<div class="small muted" style="padding:6px 12px">${res.total} 件が条件に一致 / ${res.returned} 件を表示</div>${table(res.rows, cols, { sortKey: "factors.composite", sortDir: "desc" })}`;
+}
+
+function sectorName(id) {
+  const u = S.universe;
+  const m = u && u.sectors.find((x) => x.id === id);
+  return m ? m.nameJa : id;
+}
+
+async function runScreen() {
+  if (SCREEN.running) return;
+  SCREEN.running = true;
+  const el = document.getElementById("sc-result");
+  if (el) el.innerHTML = `<div class="loading">検索中…</div>`;
+  try {
+    const body = {
+      regions: SCREEN.regions.length ? SCREEN.regions : undefined,
+      sectors: SCREEN.sectors.length ? SCREEN.sectors : undefined,
+      roles: SCREEN.roles.length ? SCREEN.roles : undefined,
+      filters: SCREEN.filters.map((f) => ({ field: f.field, op: f.op, value: f.value, value2: f.value2 })),
+      sort: [{ field: SCREEN.sort, dir: SCREEN.dir }],
+      limit: 300,
+    };
+    const res = await api("/api/screener", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    SCREEN.result = res;
+    if (el) el.innerHTML = screenerTable(res);
+  } catch (e) {
+    if (el) el.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally {
+    SCREEN.running = false;
+  }
+}
+
+/* ================================================================== *
+ * タブ: ローテーション (RRG)
+ * ================================================================== */
+function viewRotation() {
+  const d = S.overview;
+  const pts = d.rotation || [];
+  const regions = [...new Set(pts.map((p) => p.region))];
+  const sel = S.rotRegion || (regions.includes("US") ? "US" : regions[0]);
+  const use = pts.filter((p) => p.region === sel);
+  return `<div class="panel">
+    <h3>セクターローテーション (RRG風)
+      <select id="rotregion" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+        ${regions.map((r) => `<option value="${r}" ${r === sel ? "selected" : ""}>${esc(regionName(r))}</option>`).join("")}
+      </select>
+    </h3>
+    <div class="pad">${rrgSvg(use)}</div>
+    <div class="scroll-x"><table>
+      <thead><tr><th class="l">セクター</th><th class="l">象限</th><th>RS-Ratio</th><th>RS-Momentum</th></tr></thead>
+      <tbody>${use.sort((a, b) => b.rsRatio - a.rsRatio).map((p) => `<tr class="click" data-sym="${esc(p.symbol)}">
+        <td class="l">${esc(p.name)} <span class="muted small mono">${esc(p.symbol)}</span></td>
+        <td class="l">${quadTag(p.quadrant)}</td>
+        <td>${num(p.rsRatio, 1)}</td><td>${num(p.rsMomentum, 1)}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <div class="note">
+      <b>計算式 (Zスコア正規化版)</b>: RS = 100 × (セクター価格 / ベンチマーク価格) → rsRatio = 100 + 10×z₁₂₆(RS) → rsMomentum = 100 + 10×z₁₂₆(rsRatio<sub>t</sub> − rsRatio<sub>t−10</sub>)。
+      本家 JdK RS-Ratio は非公開の平滑化を使うため<b>絶対値は一致しない</b>が、四象限の意味と軌跡の回転方向は同じ。軌跡は5営業日刻みで直近6点。
+      通常は 改善 → 先行 → 失速 → 劣後 の順に反時計回りしない (時計回りに巡る)。
+    </div>
+  </div>`;
+}
+
+function quadTag(q) {
+  const m = { leading: ["先行", "b"], weakening: ["失速", "c"], lagging: ["劣後", "s"], improving: ["改善", "b"] }[q] || ["", ""];
+  return `<span class="tag ${m[1]}">${m[0]}</span>`;
+}
+
+function rrgSvg(pts) {
+  if (!pts.length) return `<div class="muted">ローテーション座標を計算できる銘柄がまだありません (126営業日以上の履歴が必要)。</div>`;
+  const W = 720, H = 520, P = 44;
+  const xs = pts.flatMap((p) => [p.rsRatio, ...p.trail.map((t) => t.rsRatio)]);
+  const ys = pts.flatMap((p) => [p.rsMomentum, ...p.trail.map((t) => t.rsMomentum)]);
+  const pad = 3;
+  const x0 = Math.min(90, Math.min(...xs) - pad), x1 = Math.max(110, Math.max(...xs) + pad);
+  const y0 = Math.min(90, Math.min(...ys) - pad), y1 = Math.max(110, Math.max(...ys) + pad);
+  const X = (v) => P + ((v - x0) / (x1 - x0)) * (W - P * 2);
+  const Y = (v) => H - P - ((v - y0) / (y1 - y0)) * (H - P * 2);
+  const cx = X(100), cy = Y(100);
+
+  const quads = `
+    <rect x="${cx}" y="${P}" width="${W - P - cx}" height="${cy - P}" fill="rgba(22,199,132,.05)"/>
+    <rect x="${cx}" y="${cy}" width="${W - P - cx}" height="${H - P - cy}" fill="rgba(240,180,41,.05)"/>
+    <rect x="${P}" y="${cy}" width="${cx - P}" height="${H - P - cy}" fill="rgba(234,57,67,.05)"/>
+    <rect x="${P}" y="${P}" width="${cx - P}" height="${cy - P}" fill="rgba(76,201,240,.05)"/>
+    <text x="${W - P - 6}" y="${P + 16}" text-anchor="end" fill="#16c784" font-size="11">先行 Leading</text>
+    <text x="${W - P - 6}" y="${H - P - 6}" text-anchor="end" fill="#f0b429" font-size="11">失速 Weakening</text>
+    <text x="${P + 6}" y="${H - P - 6}" fill="#ea3943" font-size="11">劣後 Lagging</text>
+    <text x="${P + 6}" y="${P + 16}" fill="#4cc9f0" font-size="11">改善 Improving</text>`;
+
+  const marks = pts.map((p, i) => {
+    const hue = (i * 47) % 360;
+    const col = `hsl(${hue},68%,62%)`;
+    const trail = p.trail.map((t) => `${X(t.rsRatio)},${Y(t.rsMomentum)}`).join(" ");
+    return `<polyline points="${trail}" fill="none" stroke="${col}" stroke-width="1.1" opacity=".45"/>
+      ${p.trail.slice(0, -1).map((t) => `<circle cx="${X(t.rsRatio)}" cy="${Y(t.rsMomentum)}" r="1.8" fill="${col}" opacity=".4"/>`).join("")}
+      <circle cx="${X(p.rsRatio)}" cy="${Y(p.rsMomentum)}" r="6" fill="${col}" stroke="#0a0d12" stroke-width="1.5"/>
+      <text x="${X(p.rsRatio) + 9}" y="${Y(p.rsMomentum) + 4}" fill="#d7dee9" font-size="10.5">${esc(p.name.replace(/^(米国|日本|欧州)\s*/, ""))}</text>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto">
+    <rect x="${P}" y="${P}" width="${W - P * 2}" height="${H - P * 2}" fill="#0e131c" stroke="#1e2735"/>
+    ${quads}
+    <line x1="${cx}" y1="${P}" x2="${cx}" y2="${H - P}" stroke="#2a3547" stroke-dasharray="3 3"/>
+    <line x1="${P}" y1="${cy}" x2="${W - P}" y2="${cy}" stroke="#2a3547" stroke-dasharray="3 3"/>
+    ${marks}
+    <text x="${W / 2}" y="${H - 12}" text-anchor="middle" fill="#7b8798" font-size="11">RS-Ratio (相対力) →</text>
+    <text x="14" y="${H / 2}" text-anchor="middle" fill="#7b8798" font-size="11" transform="rotate(-90 14 ${H / 2})">RS-Momentum (相対力の変化) →</text>
+  </svg>`;
+}
+
+/* ================================================================== *
+ * タブ: リスク・相関
+ * ================================================================== */
+function viewRisk() {
+  const c = S.overview.correlation;
+  if (!c) return `<div class="panel"><h3>相関</h3><div class="pad muted">相関行列を計算できる銘柄がまだ揃っていません。</div></div>`;
+  const n = c.symbols.length;
+  const head = c.labels.map((l, i) => `<th title="${esc(c.symbols[i])}" style="writing-mode:vertical-rl;height:96px;font-weight:500">${esc(l)}</th>`).join("");
+  const body = c.labels.map((l, i) => `<tr>
+    <td class="l" style="position:sticky;left:0;background:var(--panel);font-family:var(--sans)">${esc(l)}</td>
+    ${c.symbols.map((_, j) => {
+      const v = c.matrix[i * n + j];
+      return `<td style="background:${corrColor(v)};padding:3px 5px" title="${esc(c.labels[i])} × ${esc(c.labels[j])} = ${v.toFixed(2)}">${i === j ? "" : v.toFixed(2)}</td>`;
+    }).join("")}</tr>`).join("");
+
+  const div = c.clusters.map((cl) => `<div style="margin-bottom:6px"><span class="tag">クラスタ ${cl.id + 1}</span>
+    <span class="small">${cl.symbols.map((s) => esc(labelOf(c, s))).join(" · ")}</span></div>`).join("");
+
+  const loadings = c.symbols.map((s, i) => ({ s, l: c.pc1Loadings[i], n: c.labels[i] })).sort((a, b) => Math.abs(b.l) - Math.abs(a.l));
+
+  return `
+  <div class="grid" style="grid-template-columns:1fr 340px">
+    <div class="panel">
+      <h3>相関行列 <span class="hint">直近${c.window}営業日の対数リターン</span></h3>
+      <div class="scroll" style="max-height:70vh"><table style="font-size:10.5px">
+        <thead><tr><th class="l" style="position:sticky;left:0;background:var(--panel2)"></th>${head}</tr></thead>
+        <tbody>${body}</tbody></table></div>
+    </div>
+    <div>
+      <div class="panel">
+        <h3>分散の実効度</h3>
+        <div class="pad">
+          <dl class="kv">
+            <dt>平均ペア相関</dt><dd class="${c.meanPairwise > 0.6 ? "neg" : c.meanPairwise < 0.3 ? "pos" : ""}">${c.meanPairwise.toFixed(3)}</dd>
+            <dt>第1主成分の寄与率</dt><dd class="${c.pc1Share > 0.6 ? "neg" : ""}">${(c.pc1Share * 100).toFixed(1)}%</dd>
+            <dt>実効クラスタ数</dt><dd>${c.clusters.length}</dd>
+          </dl>
+          <div class="note" style="border:none;padding:10px 0 0">
+            平均ペア相関が高いほど「全部が一緒に動く」相場で、銘柄数を増やしても分散は効かない。第1主成分の寄与率は市場全体が1本の因子でどれだけ説明できるかを表す — 60% を超えると個別要因より地合いが支配している。
+          </div>
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="panel">
+        <h3>相関クラスタ <span class="hint">実質いくつの塊か</span></h3>
+        <div class="pad">${div}</div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="panel">
+        <h3>第1主成分のローディング</h3>
+        <div class="pad">
+          ${loadings.map((x) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <span class="small" style="width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.n)}</span>
+            <div class="bar" style="flex:1"><i style="width:${Math.abs(x.l) * 100 / Math.max(...loadings.map(y=>Math.abs(y.l)))}%;background:${x.l >= 0 ? "#4cc9f0" : "#f0b429"}"></i></div>
+            <span class="mono small" style="width:46px;text-align:right">${x.l.toFixed(2)}</span>
+          </div>`).join("")}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function labelOf(c, sym) {
+  const i = c.symbols.indexOf(sym);
+  return i >= 0 ? c.labels[i] : sym;
+}
+
+/* ================================================================== *
+ * 個別銘柄モーダル
+ * ================================================================== */
+async function openSymbol(sym) {
+  if (!sym) return;
+  const modal = document.getElementById("modal");
+  const sheet = document.getElementById("sheet");
+  modal.classList.add("on");
+  sheet.innerHTML = `<div class="loading">${esc(sym)} を読み込み中…</div>`;
+  try {
+    const [d, hist] = await Promise.all([
+      api(`/api/symbol/${encodeURIComponent(sym)}`),
+      api(`/api/history/${encodeURIComponent(sym)}?points=300`).catch(() => null),
+    ]);
+    sheet.innerHTML = symbolSheet(d, hist);
+    sheet.querySelectorAll("[data-close]").forEach((b) => b.onclick = closeModal);
+    sheet.querySelectorAll("tr[data-sym]").forEach((tr) => tr.onclick = () => openSymbol(tr.dataset.sym));
+  } catch (e) {
+    sheet.innerHTML = `<div class="sheet-h"><h2>${esc(sym)}</h2><span class="spacer"></span><button class="close" data-close>✕</button></div><div class="err">${esc(e.message)}</div>`;
+    sheet.querySelectorAll("[data-close]").forEach((b) => b.onclick = closeModal);
+  }
+}
+function closeModal() { document.getElementById("modal").classList.remove("on"); }
+
+function symbolSheet(d, hist) {
+  const r = d.record, i = r.instrument, p = r.price, t = r.technicals, k = r.risk, f = r.fundamentals, c = r.consensus;
+  return `
+  <div class="sheet-h">
+    <h2>${esc(i.nameJa)}</h2>
+    <span class="mono muted">${esc(i.symbol)}</span>
+    <span class="tag">${esc(regionName(i.region))}</span>
+    <span class="tag">${esc(sectorName(i.sector))}</span>
+    <span class="mono" style="font-size:19px">${num(p.last, 2)}</span>
+    <span style="font-size:15px">${pct(p.r1d)}</span>
+    <span class="muted small">${esc(p.currency || i.currency)}</span>
+    <span class="spacer"></span>
+    <span class="muted small">as of ${when(r.asOf)} · ${esc(r.dataQuality.lastBarDate)}時点の終値</span>
+    <button class="close" data-close>✕</button>
+  </div>
+  <div style="padding:12px">
+    ${hist ? `<div class="panel" style="margin-bottom:12px"><h3>チャート <span class="hint">終値 + 50/200日線 / 出来高 / RSI(14)</span></h3><div class="pad">${priceChart(hist, t)}</div></div>` : ""}
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      ${panelReturns(p, k)}
+      ${panelTech(t)}
+      ${panelValuation(r)}
+      ${panelQuality(r)}
+      ${panelRiskDetail(k)}
+      ${panelConsensus(c, p)}
+    </div>
+
+    <div style="height:12px"></div>
+    <div class="grid" style="grid-template-columns:1.1fr .9fr">
+      ${panelSignals(r.signals)}
+      <div>
+        ${panelFactors(r.factors)}
+        <div style="height:12px"></div>
+        ${panelLevels(t, p)}
+        <div style="height:12px"></div>
+        ${panelPeers(d.peers)}
+        <div style="height:12px"></div>
+        ${panelProvenance(r)}
+      </div>
+    </div>
+  </div>`;
+}
+
+function priceChart(hist, t) {
+  const bars = hist.bars || [];
+  if (bars.length < 20) return `<div class="muted">描画に足りるバーがありません。</div>`;
+  const W = 1180, H = 300, VH = 56, RH = 70, P = 46;
+  const cs = bars.map((b) => b.c);
+  const mn = Math.min(...bars.map((b) => b.l)), mx = Math.max(...bars.map((b) => b.h));
+  const rng = (mx - mn) || 1;
+  const X = (i) => P + (i / (bars.length - 1)) * (W - P - 12);
+  const Y = (v) => H - 18 - ((v - mn) / rng) * (H - 30);
+
+  function sma(n) {
+    const o = []; let s = 0;
+    for (let i = 0; i < cs.length; i++) { s += cs[i]; if (i >= n) s -= cs[i - n]; o.push(i >= n - 1 ? s / n : null); }
+    return o;
+  }
+  const line = (arr, col, w) => {
+    const pts = arr.map((v, i) => (isN(v) ? `${X(i)},${Y(v)}` : null)).filter(Boolean).join(" ");
+    return pts ? `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="${w}"/>` : "";
+  };
+
+  const grid = [0, .25, .5, .75, 1].map((q) => {
+    const v = mn + rng * q;
+    return `<line x1="${P}" y1="${Y(v)}" x2="${W - 12}" y2="${Y(v)}" stroke="#1a2230"/>
+      <text x="${P - 6}" y="${Y(v) + 4}" text-anchor="end" fill="#5c6779" font-size="10" font-family="monospace">${v.toFixed(v > 1000 ? 0 : 2)}</text>`;
+  }).join("");
+
+  // 出来高
+  const vols = bars.map((b) => b.v).filter(isN);
+  const vmax = vols.length ? Math.max(...vols) : 0;
+  const volBars = vmax > 0 ? bars.map((b, i) => {
+    if (!isN(b.v)) return "";
+    const h = (b.v / vmax) * (VH - 6);
+    const up = i === 0 || b.c >= bars[i - 1].c;
+    return `<rect x="${X(i) - 1}" y="${H + VH - 4 - h}" width="2" height="${h}" fill="${up ? "#16c78455" : "#ea394355"}"/>`;
+  }).join("") : `<text x="${P}" y="${H + 30}" fill="#5c6779" font-size="10">出来高データなし</text>`;
+
+  // RSI
+  function rsiSeries(n) {
+    const out = new Array(cs.length).fill(null);
+    if (cs.length <= n) return out;
+    let g = 0, l = 0;
+    for (let i = 1; i <= n; i++) { const dd = cs[i] - cs[i - 1]; if (dd > 0) g += dd; else l -= dd; }
+    g /= n; l /= n;
+    out[n] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+    for (let i = n + 1; i < cs.length; i++) {
+      const dd = cs[i] - cs[i - 1];
+      g = (g * (n - 1) + Math.max(0, dd)) / n;
+      l = (l * (n - 1) + Math.max(0, -dd)) / n;
+      out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+    }
+    return out;
+  }
+  const rsi = rsiSeries(14);
+  const RY = (v) => H + VH + 12 + (RH - 16) * (1 - v / 100);
+  const rsiPts = rsi.map((v, i) => (isN(v) ? `${X(i)},${RY(v)}` : null)).filter(Boolean).join(" ");
+
+  const tot = H + VH + RH + 16;
+  return `<svg viewBox="0 0 ${W} ${tot}" style="width:100%;height:auto">
+    ${grid}
+    ${line(cs, "#d7dee9", 1.4)}
+    ${line(sma(50), "#4cc9f0", 1.1)}
+    ${line(sma(200), "#b892ff", 1.1)}
+    <text x="${P}" y="${P - 24}" fill="#4cc9f0" font-size="10">— 50日線</text>
+    <text x="${P + 60}" y="${P - 24}" fill="#b892ff" font-size="10">— 200日線</text>
+    ${volBars}
+    <line x1="${P}" y1="${RY(70)}" x2="${W - 12}" y2="${RY(70)}" stroke="#ea394344" stroke-dasharray="2 3"/>
+    <line x1="${P}" y1="${RY(30)}" x2="${W - 12}" y2="${RY(30)}" stroke="#16c78444" stroke-dasharray="2 3"/>
+    ${rsiPts ? `<polyline points="${rsiPts}" fill="none" stroke="#f0b429" stroke-width="1.1"/>` : ""}
+    <text x="${P - 6}" y="${RY(70) + 3}" text-anchor="end" fill="#5c6779" font-size="9" font-family="monospace">70</text>
+    <text x="${P - 6}" y="${RY(30) + 3}" text-anchor="end" fill="#5c6779" font-size="9" font-family="monospace">30</text>
+    <text x="${P}" y="${H + VH + 8}" fill="#5c6779" font-size="10">RSI(14)</text>
+  </svg>
+  <div class="small muted" style="text-align:right">${esc(hist.source)} · ${bars.length}本 · ${esc(bars[0] ? new Date(bars[0].t*1000).toISOString().slice(0,10) : "")} 〜 ${esc(bars.length ? new Date(bars[bars.length-1].t*1000).toISOString().slice(0,10) : "")}</div>`;
+}
+
+function panelReturns(p, k) {
+  return `<div class="panel"><h3>リターン</h3><div class="pad"><dl class="kv">
+    <dt>1日</dt><dd>${pct(p.r1d)}</dd>
+    <dt>1週</dt><dd>${pct(p.r1w)}</dd>
+    <dt>1ヶ月</dt><dd>${pct(p.r1m)}</dd>
+    <dt>3ヶ月</dt><dd>${pct(p.r3m)}</dd>
+    <dt>6ヶ月</dt><dd>${pct(p.r6m)}</dd>
+    <dt>12ヶ月</dt><dd>${pct(p.r12m)}</dd>
+    <dt>年初来</dt><dd>${pct(p.ytd)}</dd>
+    <dt title="直近1ヶ月を除いた12ヶ月リターン。短期リバーサルを除くのが実務の標準">12-1モメンタム</dt><dd>${pct(p.r12m1m)}</dd>
+    <dt>52週高値</dt><dd>${num(p.high52w, 2)}</dd>
+    <dt>52週安値</dt><dd>${num(p.low52w, 2)}</dd>
+    <dt>レンジ内位置</dt><dd>${isN(p.rangePosition52w) ? (p.rangePosition52w * 100).toFixed(0) + "%" : DASH}</dd>
+    <dt>高値からの下落</dt><dd>${pct(p.drawdownFrom52wHigh)}</dd>
+    <dt>出来高比 (20日)</dt><dd>${isN(p.volumeRatio) ? p.volumeRatio.toFixed(2) + "x" : DASH}</dd>
+  </dl></div></div>`;
+}
+
+function panelTech(t) {
+  const lbl = { "strong-buy": ["強い買い", "b"], buy: ["買い", "b"], neutral: ["中立", "c"], sell: ["売り", "s"], "strong-sell": ["強い売り", "s"] }[t.compositeLabel] || ["", ""];
+  return `<div class="panel">
+    <h3>テクニカル <span class="hint">個別指標の合議</span></h3>
+    <div class="pad">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:26px;font-weight:700" class="mono">${t.compositeScore.toFixed(0)}</span>
+        <span class="tag ${lbl[1]}">${lbl[0]}</span>
+        <div class="bar" style="flex:1"><i style="width:${t.compositeScore}%;background:${t.compositeScore >= 60 ? "#16c784" : t.compositeScore <= 40 ? "#ea3943" : "#7b8798"}"></i></div>
+      </div>
+      <dl class="kv">
+        <dt>RSI(14)</dt><dd>${num(t.rsi14, 1)} ${t.rsi14State === "overbought" ? '<span class="tag c">買われすぎ</span>' : t.rsi14State === "oversold" ? '<span class="tag c">売られすぎ</span>' : ""}</dd>
+        <dt>MACD</dt><dd>${t.macd ? `${num(t.macd.histogram, 3)} <span class="tag ${t.macd.state === "bullish" ? "b" : "s"}">${t.macd.state === "bullish" ? "強気" : "弱気"}</span>` : DASH}</dd>
+        <dt>ADX(14)</dt><dd>${t.adx ? `${num(t.adx.adx, 1)} <span class="muted small">${t.adx.regime === "trending" ? "トレンド" : t.adx.regime === "ranging" ? "レンジ" : "移行期"}</span>` : DASH}</dd>
+        <dt>+DI / -DI</dt><dd>${t.adx ? `${num(t.adx.plusDi, 1)} / ${num(t.adx.minusDi, 1)}` : DASH}</dd>
+        <dt>ストキャス %K/%D</dt><dd>${t.stochastic ? `${num(t.stochastic.k, 1)} / ${num(t.stochastic.d, 1)}` : DASH}</dd>
+        <dt>ボリンジャー %B</dt><dd>${t.bollinger ? num(t.bollinger.percentB, 2) + (t.bollinger.squeeze ? ' <span class="tag c">スクイーズ</span>' : "") : DASH}</dd>
+        <dt>ATR%</dt><dd>${isN(t.atrPercent) ? pctPlain(t.atrPercent, 2) : DASH}</dd>
+        <dt>MFI(14)</dt><dd>${num(t.mfi14, 1)}</dd>
+        <dt>CCI(20)</dt><dd>${num(t.cci20, 0)}</dd>
+        <dt>Williams %R</dt><dd>${num(t.williamsR14, 1)}</dd>
+        <dt>OBV 20日勾配</dt><dd>${isN(t.obvSlope20) ? pctPlain(t.obvSlope20, 1) : DASH}</dd>
+        <dt>VWAP(20)乖離</dt><dd>${pct(t.vwapDeviation)}</dd>
+        <dt>50日/200日線</dt><dd>${t.ma.cross === "golden" ? '<span class="pos">ゴールデン</span>' : t.ma.cross === "dead" ? '<span class="neg">デッド</span>' : "—"}${isN(t.ma.crossAgeDays) ? ` <span class="muted small">${t.ma.crossAgeDays}日前</span>` : ""}</dd>
+        <dt>200日線乖離</dt><dd>${pct(t.ma.deviation200)}</dd>
+        <dt>並び</dt><dd>${t.ma.perfectOrder === "bullish" ? '<span class="pos">パーフェクトオーダー</span>' : t.ma.perfectOrder === "bearish" ? '<span class="neg">逆オーダー</span>' : "—"}</dd>
+      </dl>
+      <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+        <div class="muted small" style="margin-bottom:4px">合議の内訳</div>
+        ${t.breakdown.map((b) => `<div class="small" style="display:flex;gap:6px;margin-bottom:2px">
+          <span class="${b.verdict === "bull" ? "pos" : b.verdict === "bear" ? "neg" : "muted"}" style="width:9px">${b.verdict === "bull" ? "▲" : b.verdict === "bear" ? "▼" : "－"}</span>
+          <span style="width:110px;color:var(--muted)">${esc(b.indicator)}</span>
+          <span style="flex:1">${esc(b.note)}</span></div>`).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+function metricRows(card) {
+  if (!card) return `<div class="muted small">ファンダメンタルズ未取得</div>`;
+  return card.metrics.map((m) => {
+    const disp = !isN(m.value) ? "—"
+      : m.unit === "%" ? pctPlain(m.value, 1)
+      : m.unit === "x" ? m.value.toFixed(2) + "x"
+      : m.value.toFixed(2);
+    const med = !isN(m.peerMedian) ? "—"
+      : m.unit === "%" ? pctPlain(m.peerMedian, 1)
+      : m.unit === "x" ? m.peerMedian.toFixed(2) + "x"
+      : m.peerMedian.toFixed(2);
+    const w = isN(m.percentile) ? m.percentile : 0;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span class="small" style="width:130px;color:var(--muted)" title="${m.lowerIsBetter ? "小さいほど良い" : "大きいほど良い"}">${esc(m.label)}</span>
+      <span class="mono small" style="width:62px;text-align:right">${disp}</span>
+      <div class="bar" style="flex:1" title="セクター内パーセンタイル ${isN(m.percentile) ? m.percentile.toFixed(0) : "—"} (100=最良)">
+        <i style="width:${w}%;background:${w >= 70 ? "#16c784" : w <= 30 ? "#ea3943" : "#556270"}"></i></div>
+      <span class="mono small muted" style="width:56px;text-align:right" title="セクター中央値">${med}</span>
     </div>`;
   }).join("");
 }
 
-function renderIndices(indices) {
-  document.getElementById("indices").innerHTML = indices.map(x => {
-    const cls = x.r1d >= 0 ? "up" : "down";
-    return `<div class="idx">
-      <div>${x.name} <span class="sub">${x.region}</span></div>
-      <div class="r ${cls}">${pct(x.r1d)}</div>
-      <div class="sub">1週 ${pct(x.r1w)} · 1ヶ月 ${pct(x.r1m)}</div>
-    </div>`;
-  }).join("");
+function panelValuation(r) {
+  const c = r.valuation;
+  return `<div class="panel">
+    <h3>バリュエーション <span class="hint">セクター内の相対評価</span></h3>
+    <div class="pad">
+      ${c ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:26px;font-weight:700" class="mono">${isN(c.score) ? c.score.toFixed(0) : "—"}</span>
+        <span class="muted small">割安スコア (100=最も割安)<br>カバレッジ ${(c.coverage * 100).toFixed(0)}%</span></div>` : ""}
+      ${metricRows(c)}
+      <div class="note" style="border:none;padding:8px 0 0">左=自社値 / バー=セクター内パーセンタイル (右ほど良い) / 右=セクター中央値。異常値 (赤字企業の負のPERなど) は定義域外として除外しており、その分カバレッジが下がる。</div>
+    </div>
+  </div>`;
 }
 
-const VERDICT_LABEL = {
-  "query-model": "✅ クエリ計算量で優位 (測定済み)",
-  "none": "— 優位性なし (この規模では)",
-  "unverified": "⚠️ 未検証 (厳密解が取れないため断定不可)",
+function panelQuality(r) {
+  const q = r.quality, g = r.growth;
+  return `<div class="panel">
+    <h3>クオリティ / 成長</h3>
+    <div class="pad">
+      ${q ? `<div style="display:flex;gap:18px;margin-bottom:10px">
+        <div><span style="font-size:24px;font-weight:700" class="mono">${isN(q.score) ? q.score.toFixed(0) : "—"}</span><div class="muted small">クオリティ</div></div>
+        <div><span style="font-size:24px;font-weight:700" class="mono">${g && isN(g.score) ? g.score.toFixed(0) : "—"}</span><div class="muted small">成長</div></div>
+      </div>` : ""}
+      ${metricRows(q)}
+      <div style="height:8px"></div>
+      ${metricRows(g)}
+    </div>
+  </div>`;
+}
+
+function panelRiskDetail(k) {
+  return `<div class="panel">
+    <h3>リスク <span class="hint">対 ${esc(k.benchmark || "—")}</span></h3>
+    <div class="pad"><dl class="kv">
+      <dt>年率ボラ (20日)</dt><dd>${isN(k.vol20) ? pctPlain(k.vol20, 1) : DASH}</dd>
+      <dt>年率ボラ (252日)</dt><dd>${isN(k.vol252) ? pctPlain(k.vol252, 1) : DASH}</dd>
+      <dt>ボラ比 20/252</dt><dd class="${isN(k.volRatio) && k.volRatio > 1.4 ? "warn" : ""}">${num(k.volRatio, 2)}</dd>
+      <dt>ベータ</dt><dd>${num(k.beta, 2)}</dd>
+      <dt>アルファ (年率)</dt><dd>${pct(k.alphaAnnual)}</dd>
+      <dt>決定係数 R²</dt><dd>${num(k.rSquared, 2)}</dd>
+      <dt>相関</dt><dd>${num(k.correlationToBenchmark, 2)}</dd>
+      <dt>トラッキングエラー</dt><dd>${isN(k.trackingError) ? pctPlain(k.trackingError, 1) : DASH}</dd>
+      <dt>情報比 (IR)</dt><dd>${num(k.informationRatio, 2)}</dd>
+      <dt>上昇キャプチャ</dt><dd>${num(k.upCapture, 2)}</dd>
+      <dt>下落キャプチャ</dt><dd>${num(k.downCapture, 2)}</dd>
+      <dt>最大DD</dt><dd>${pct(k.maxDrawdown, 1)}${isN(k.maxDrawdownDays) ? ` <span class="muted small">${k.maxDrawdownDays}日</span>` : ""}</dd>
+      <dt>現在のDD</dt><dd>${pct(k.currentDrawdown, 1)}</dd>
+      <dt>シャープ</dt><dd>${num(k.sharpe, 2)}</dd>
+      <dt>ソルティノ</dt><dd>${num(k.sortino, 2)}</dd>
+      <dt>カルマー</dt><dd>${num(k.calmar, 2)}</dd>
+      <dt>VaR 95% (日次)</dt><dd>${isN(k.var95) ? "-" + pctPlain(k.var95, 2) : DASH}</dd>
+      <dt>CVaR 95% (日次)</dt><dd>${isN(k.cvar95) ? "-" + pctPlain(k.cvar95, 2) : DASH}</dd>
+      <dt>VaR 99% (日次)</dt><dd>${isN(k.var99) ? "-" + pctPlain(k.var99, 2) : DASH}</dd>
+      <dt>歪度</dt><dd>${num(k.skewness, 2)}</dd>
+      <dt>超過尖度</dt><dd>${num(k.kurtosis, 2)}</dd>
+      <dt>±2σ超え日数 (1年)</dt><dd>${k.tailDays ?? DASH}</dd>
+    </dl>
+    <div class="note" style="border:none;padding:8px 0 0">${esc(k.riskFreeAssumption)}。VaR/CVaR は正規分布を仮定せず、実際の日次リターン分布の分位点から取っている (歴史的手法)。</div>
+    </div>
+  </div>`;
+}
+
+function panelConsensus(c, p) {
+  if (!c) return `<div class="panel"><h3>アナリスト・コンセンサス</h3><div class="pad muted">この銘柄のコンセンサスは取得できていません (ETF・指数にはアナリスト予想がありません)。</div></div>`;
+  const dist = c.trend && c.trend.length ? c.trend : [];
+  return `<div class="panel">
+    <h3>アナリスト・コンセンサス</h3>
+    <div class="pad">
+      <dl class="kv">
+        <dt>レーティング平均</dt><dd>${num(c.recommendationMean, 2)} <span class="muted small">${esc(c.recommendationKey || "")}</span></dd>
+        <dt>アナリスト数</dt><dd>${c.analystCount ?? DASH}</dd>
+        <dt>目標株価 平均</dt><dd>${num(c.targetMean, 2)}</dd>
+        <dt>目標株価 高値/安値</dt><dd>${num(c.targetHigh, 2)} / ${num(c.targetLow, 2)}</dd>
+        <dt>現値からの乖離</dt><dd>${pct(c.upsideToTarget)}</dd>
+        <dt>見方のばらつき</dt><dd>${num(c.targetDispersion, 2)}</dd>
+        <dt>レーティング改定 (3ヶ月)</dt><dd class="${isN(c.ratingMomentum) ? (c.ratingMomentum > 0 ? "pos" : c.ratingMomentum < 0 ? "neg" : "") : ""}">${num(c.ratingMomentum, 2)}</dd>
+        ${c.epsRevision ? `<dt>EPS改定 (30日)</dt><dd><span class="pos">↑${c.epsRevision.up}</span> / <span class="neg">↓${c.epsRevision.down}</span></dd>` : ""}
+      </dl>
+      ${dist.length ? `<div style="margin-top:10px"><div class="muted small" style="margin-bottom:4px">推奨分布の推移</div>
+        <table style="font-size:11px"><thead><tr><th class="l">時期</th><th>強気買</th><th>買</th><th>中立</th><th>売</th><th>強気売</th></tr></thead>
+        <tbody>${dist.map((d) => `<tr><td class="l">${esc(d.period)}</td><td class="pos">${d.strongBuy}</td><td class="pos">${d.buy}</td><td>${d.hold}</td><td class="neg">${d.sell}</td><td class="neg">${d.strongSell}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      <div class="note" style="border:none;padding:8px 0 0">レーティング平均は 1=強気買 … 5=強気売 (Yahoo 準拠)。目標株価は構造的に上方バイアスがあるため、水準そのものより<b>改定の方向</b>を見るのが実務。</div>
+    </div>
+  </div>`;
+}
+
+function panelSignals(sigs) {
+  if (!sigs || !sigs.length) return `<div class="panel"><h3>シグナル</h3><div class="pad muted">検出されたシグナルはありません。</div></div>`;
+  const cls = { bullish: "bull", bearish: "bear", caution: "caut" };
+  const lab = { bullish: ["強気", "b"], bearish: ["弱気", "s"], caution: ["注意", "c"] };
+  return `<div class="panel">
+    <h3>シグナル <span class="hint">観測された事実とその解釈 (売買推奨ではない)</span></h3>
+    <div class="pad">
+      ${sigs.map((s) => `<div class="sig ${cls[s.direction]}">
+        <div class="t">${esc(s.title)} <span class="tag ${lab[s.direction][1]}">${lab[s.direction][0]}</span>
+          <span class="muted small">${"★".repeat(s.strength)}</span></div>
+        <div class="d">${esc(s.detail)}</div></div>`).join("")}
+    </div>
+  </div>`;
+}
+
+function panelFactors(f) {
+  if (!f) return `<div class="panel"><h3>ファクター</h3><div class="pad muted">合成に必要なデータが揃っていません。</div></div>`;
+  const rows = [["value", "割安", f.value], ["quality", "質", f.quality], ["momentum", "勢い", f.momentum], ["growth", "成長", f.growth], ["lowVol", "低ボラ", f.lowVol]];
+  return `<div class="panel">
+    <h3>ファクター分解 <span class="hint">${f.rank ? `${f.rank}位 / ${f.peerCount}銘柄` : ""}</span></h3>
+    <div class="pad">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:26px;font-weight:700" class="mono">${isN(f.composite) ? f.composite.toFixed(0) : "—"}</span>
+        <span class="muted small">総合スコア<br>
+          <span title="合成に使えたウェイトの割合。ETFや指数はファンダが存在しないため 0.35 前後になる">
+            カバレッジ ${isN(f.coverage) ? (f.coverage * 100).toFixed(0) + "%" : "—"}</span></span>
+      </div>
+      ${isN(f.coverage) && f.coverage < 0.6 ? `<div class="small warn" style="margin-bottom:8px">⚠ 一部のファクターしか使えていないため、フルカバレッジの銘柄と同じ土俵の比較ではありません。</div>` : ""}
+      ${rows.map(([k, l, v]) => {
+        const contrib = (f.contributions || []).find((c) => c.factor === k);
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="small" style="width:44px;color:var(--muted)">${l}</span>
+          <div class="bar" style="flex:1"><i style="width:${isN(v) ? v : 0}%;background:${isN(v) && v >= 65 ? "#16c784" : isN(v) && v <= 35 ? "#ea3943" : "#556"}"></i></div>
+          <span class="mono small" style="width:34px;text-align:right">${isN(v) ? v.toFixed(0) : "—"}</span>
+          <span class="mono small muted" style="width:66px;text-align:right" title="ウェイト × Zスコア">${contrib ? `w${(contrib.weight * 100).toFixed(0)}% ${contrib.contribution >= 0 ? "+" : ""}${contrib.contribution.toFixed(2)}` : ""}</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function panelLevels(t, p) {
+  const L = t.levels || { support: [], resistance: [] };
+  const pv = t.pivots, fp = t.fibPivots;
+  const row = (x, kind) => `<div style="display:flex;justify-content:space-between;font-size:11.5px;padding:2px 0">
+    <span class="mono ${kind}">${num(x.level, 2)}</span>
+    <span class="muted small">${x.touches}回反応</span>
+    <span class="mono ${x.distancePct >= 0 ? "pos" : "neg"}">${(x.distancePct * 100).toFixed(1)}%</span></div>`;
+  return `<div class="panel">
+    <h3>支持・抵抗 <span class="hint">スイング高安のクラスタ / 直近180日</span></h3>
+    <div class="pad">
+      <div class="muted small">抵抗帯</div>
+      ${L.resistance.length ? L.resistance.slice().reverse().map((x) => row(x, "neg")).join("") : `<div class="muted small">検出なし</div>`}
+      <div style="border-top:1px dashed var(--line);margin:6px 0;padding-top:4px"></div>
+      <div class="mono" style="text-align:center">現値 ${num(p.last, 2)}</div>
+      <div style="border-top:1px dashed var(--line);margin:6px 0;padding-top:4px"></div>
+      <div class="muted small">支持帯</div>
+      ${L.support.length ? L.support.map((x) => row(x, "pos")).join("") : `<div class="muted small">検出なし</div>`}
+      ${pv ? `<div style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px">
+        <div class="muted small" style="margin-bottom:3px">ピボット (前日足ベース)</div>
+        <table style="font-size:11px"><thead><tr><th class="l">方式</th><th>S2</th><th>S1</th><th>P</th><th>R1</th><th>R2</th></tr></thead><tbody>
+        <tr><td class="l">クラシック</td><td>${num(pv.s2,2)}</td><td>${num(pv.s1,2)}</td><td>${num(pv.pivot,2)}</td><td>${num(pv.r1,2)}</td><td>${num(pv.r2,2)}</td></tr>
+        ${fp ? `<tr><td class="l">フィボナッチ</td><td>${num(fp.s2,2)}</td><td>${num(fp.s1,2)}</td><td>${num(fp.pivot,2)}</td><td>${num(fp.r1,2)}</td><td>${num(fp.r2,2)}</td></tr>` : ""}
+        </tbody></table></div>` : ""}
+    </div>
+  </div>`;
+}
+
+function panelPeers(peers) {
+  if (!peers || !peers.length) return "";
+  return `<div class="panel">
+    <h3>同セクターのピア</h3>
+    <div class="scroll" style="max-height:260px"><table>
+      <thead><tr><th class="l">銘柄</th><th>予想PER</th><th>PBR</th><th>ROE</th><th>3ヶ月</th><th>総合</th></tr></thead>
+      <tbody>${peers.map((p) => `<tr class="click" data-sym="${esc(p.symbol)}">
+        <td class="l">${esc(p.nameJa)}</td>
+        <td>${mult(p.forwardPE)}</td><td>${mult(p.priceToBook, 2)}</td>
+        <td>${isN(p.returnOnEquity) ? pctPlain(p.returnOnEquity) : DASH}</td>
+        <td>${pct(p.r3m)}</td><td>${score(p.composite)}</td></tr>`).join("")}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function panelProvenance(r) {
+  const f = r.fundamentals;
+  const src = f && f.fieldSources ? Object.entries(f.fieldSources) : [];
+  return `<div class="panel">
+    <h3>データの出所 <span class="hint">どの数字がどこから来たか</span></h3>
+    <div class="pad">
+      <dl class="kv">
+        <dt>価格ソース</dt><dd>${esc(r.dataQuality.priceSource)}</dd>
+        <dt>バー数</dt><dd>${r.dataQuality.bars}</dd>
+        <dt>最終営業日</dt><dd>${esc(r.dataQuality.lastBarDate)}</dd>
+        <dt>ファンダ取得元</dt><dd class="small">${esc(r.dataQuality.fundamentalsSource || "未取得")}</dd>
+        <dt>ファンダ基準時刻</dt><dd class="small">${f ? when(f.asOf) : "—"}</dd>
+      </dl>
+      ${r.dataQuality.warnings.length ? `<div style="margin-top:8px">${r.dataQuality.warnings.map((w) => `<div class="small warn">⚠ ${esc(w)}</div>`).join("")}</div>` : ""}
+      ${src.length ? `<details style="margin-top:8px"><summary class="muted small" style="cursor:pointer">フィールド単位の出所 (${src.length}件)</summary>
+        <div class="mono small muted" style="max-height:180px;overflow:auto;margin-top:4px">
+          ${src.map(([k, v]) => `<div>${esc(k)} ← ${esc(v)}</div>`).join("")}</div></details>` : ""}
+    </div>
+  </div>`;
+}
+
+/* ================================================================== *
+ * ルーティングとイベント
+ * ================================================================== */
+const TABS = [
+  ["overview", "概況", viewOverview],
+  ["sectors", "セクター", viewSectors],
+  ["screener", "スクリーナー", viewScreener],
+  ["rotation", "ローテーション", viewRotation],
+  ["risk", "リスク・相関", viewRisk],
+];
+
+function renderNav() {
+  document.getElementById("nav").innerHTML = TABS.map(([k, t]) =>
+    `<button data-tab="${k}" class="${S.tab === k ? "on" : ""}">${t}</button>`).join("");
+  document.querySelectorAll("nav button").forEach((b) => b.onclick = () => { S.tab = b.dataset.tab; render(); });
+}
+
+function renderChips() {
+  const d = S.overview;
+  const el = document.getElementById("regimechips");
+  if (!d || !d.regime) { el.innerHTML = ""; return; }
+  const r = d.regime;
+  const t = { bull: ["上昇基調", "#16c784"], bear: ["下降基調", "#ea3943"], range: ["レンジ", "#f0b429"] }[r.trend];
+  const v = { low: ["低ボラ", "#16c784"], normal: ["平常", "#7b8798"], elevated: ["警戒", "#f0b429"], stress: ["ストレス", "#ea3943"] }[r.volatility];
+  const a = { "risk-on": ["リスクオン", "#16c784"], neutral: ["中立", "#7b8798"], "risk-off": ["リスクオフ", "#ea3943"] }[r.riskAppetite];
+  el.innerHTML = [t, v, a].map(([txt, col]) => `<span class="chip"><span class="dot" style="background:${col}"></span>${txt}</span>`).join("");
+  document.getElementById("stamp").textContent = "更新 " + when(d.generatedAt);
+}
+
+function render() {
+  renderNav();
+  const view = document.getElementById("view");
+  const tab = TABS.find(([k]) => k === S.tab);
+  try {
+    view.innerHTML = tab ? tab[2]() : "";
+  } catch (e) {
+    view.innerHTML = `<div class="err">描画エラー: ${esc(e.message)}</div>`;
+    return;
+  }
+  attach();
+}
+
+function attach() {
+  const hm = document.getElementById("heatmetric");
+  if (hm) hm.onchange = () => { S.heatMetric = hm.value; render(); };
+  const sr = document.getElementById("secregion");
+  if (sr) sr.onchange = () => { S.secRegion = sr.value; render(); };
+  const rr = document.getElementById("rotregion");
+  if (rr) rr.onchange = () => { S.rotRegion = rr.value; render(); };
+
+  document.querySelectorAll("[data-sym]").forEach((el) => {
+    if (el.tagName === "TR") return; // table() 側で処理済み
+    el.onclick = () => openSymbol(el.dataset.sym);
+  });
+
+  // スクリーナー
+  const add = document.getElementById("sc-add");
+  if (add) {
+    add.onclick = () => { SCREEN.filters.push({ field: "fundamentals.forwardPE", op: "lte", value: 20, disp: 20 }); SCREEN.preset = null; render(); };
+    document.getElementById("sc-clear").onclick = () => { SCREEN.filters = []; SCREEN.preset = null; SCREEN.result = null; render(); };
+    document.getElementById("sc-run").onclick = runScreen;
+    const rsel = document.getElementById("sc-region");
+    rsel.onchange = () => { SCREEN.regions = [...rsel.selectedOptions].map((o) => o.value); };
+    const ssel = document.getElementById("sc-sector");
+    ssel.onchange = () => { SCREEN.sectors = [...ssel.selectedOptions].map((o) => o.value); };
+    const rolesel = document.getElementById("sc-role");
+    rolesel.onchange = () => { SCREEN.roles = rolesel.value ? [rolesel.value] : []; };
+
+    document.querySelectorAll("#sc-filters .frow").forEach((row) => {
+      const i = Number(row.dataset.i);
+      const f = SCREEN.filters[i];
+      const meta = FIELD_CHOICES.find((c) => c[0] === f.field);
+      const isRatio = meta && meta[2] === "r";
+      row.querySelector('[data-role="field"]').onchange = (e) => { f.field = e.target.value; render(); };
+      row.querySelector('[data-role="op"]').onchange = (e) => { f.op = e.target.value; render(); };
+      const v = row.querySelector('[data-role="v"]');
+      if (v) v.oninput = (e) => {
+        const raw = parseFloat(e.target.value);
+        f.disp = e.target.value;
+        f.value = isFinite(raw) ? (isRatio ? raw / 100 : raw) : undefined;
+      };
+      const v2 = row.querySelector('[data-role="v2"]');
+      if (v2) v2.oninput = (e) => {
+        const raw = parseFloat(e.target.value);
+        f.disp2 = e.target.value;
+        f.value2 = isFinite(raw) ? (isRatio ? raw / 100 : raw) : undefined;
+      };
+      row.querySelector('[data-role="del"]').onclick = () => { SCREEN.filters.splice(i, 1); render(); };
+    });
+
+    document.querySelectorAll("[data-preset]").forEach((b) => b.onclick = async () => {
+      SCREEN.preset = b.dataset.preset;
+      const p = S.presets.presets.find((x) => x.id === SCREEN.preset);
+      const el = document.getElementById("sc-result");
+      el.innerHTML = `<div class="loading">検索中…</div>`;
+      try {
+        const res = await api(`/api/screener?preset=${encodeURIComponent(SCREEN.preset)}&limit=300`);
+        SCREEN.result = res;
+        SCREEN.filters = [];
+        render();
+      } catch (e) { el.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+    });
+  }
+}
+
+document.getElementById("modal").onclick = (e) => { if (e.target.id === "modal") closeModal(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+document.getElementById("refresh").onclick = async () => {
+  const b = document.getElementById("refresh");
+  b.disabled = true; b.textContent = "更新中…";
+  try {
+    await fetch("/api/refresh", { method: "POST" });
+    await boot();
+  } catch (e) { /* 表示は boot 側で扱う */ }
+  b.disabled = false; b.textContent = "更新";
 };
 
-function renderQuantum(q, sectors) {
-  const panel = document.getElementById("qos-panel");
-  if (!q) { panel.style.display = "none"; return; }
-  panel.style.display = "block";
-
-  const nameOf = id => (sectors.find(s => s.sector.id === id) || {}).sector
-    ? sectors.find(s => s.sector.id === id).sector.nameJa : id;
-
-  const chips = q.basket.ids.map(id => `<span class="chip">${nameOf(id)}</span>`).join("");
-  const exactMark = q.basket.matchesExact === null
-    ? '<span class="sub">厳密解は未計算</span>'
-    : q.basket.matchesExact
-      ? '<span class="sub">厳密解と一致 ✓</span>'
-      : '<span class="sub" style="color:var(--warm)">厳密解と不一致</span>';
-
-  const kpis = `
-    <div class="kpis">
-      <div class="kpi"><div class="k">VaR 95%</div><div class="v">${(q.risk.varThreshold * 100).toFixed(2)}%</div></div>
-      <div class="kpi"><div class="k">CVaR (期待ショートフォール)</div><div class="v">${(q.risk.cvar * 100).toFixed(2)}%</div></div>
-      <div class="kpi"><div class="k">テール確率 (真値)</div><div class="v">${(q.risk.tailProbability * 100).toFixed(2)}%</div></div>
-      <div class="kpi"><div class="k">IQAE 推定値</div><div class="v" style="color:var(--accent)">${(q.risk.quantumEstimate * 100).toFixed(2)}%</div></div>
-      <div class="kpi"><div class="k">量子オラクル呼び出し</div><div class="v">${q.risk.oracleCalls.toLocaleString()}</div></div>
-      <div class="kpi"><div class="k">古典が要するサンプル</div><div class="v">${q.risk.classicalSamples.toLocaleString()}</div></div>
-      <div class="kpi"><div class="k">クエリ優位</div><div class="v" style="color:${q.risk.queryAdvantage > 1 ? "var(--accent)" : "var(--dim)"}">×${q.risk.queryAdvantage.toFixed(2)}</div></div>
-      <div class="kpi"><div class="k">使用量子ビット</div><div class="v">${q.risk.qubits}</div></div>
-    </div>`;
-
-  const ledger = q.ledgerEntries.map(e => {
-    const rows = e.runs.map(r => `
-      <tr>
-        <td class="kind-${r.kind}">${r.backend}</td>
-        <td class="sub">${r.kind}</td>
-        <td class="num">${r.ok ? r.wallMs.toFixed(1) + " ms" : "—"}</td>
-        <td class="num">${r.ok ? r.queries.toLocaleString() : "—"}</td>
-        <td class="${r.ok ? "" : "fail"}">${r.ok ? "ok" : (r.error || "skipped")}</td>
-      </tr>`).join("");
-    const v = e.verdict;
-    return `
-      <h3 style="font-size:.8rem;margin:.9rem 0 .2rem">${e.problem} <span class="sub">n=${e.size}${
-        e.approximationRatio != null ? " · 近似比 " + e.approximationRatio.toFixed(4) : ""
-      }</span></h3>
-      <div class="sub">${e.summary}</div>
-      <table class="bench">
-        <tr><th>バックエンド</th><th>種別</th><th style="text-align:right">実時間</th><th style="text-align:right">作業量</th><th>状態</th></tr>
-        ${rows}
-      </table>
-      <div class="verdict ${v.kind}"><b>${VERDICT_LABEL[v.kind] || v.kind}</b>${v.note || v.reason || ""}</div>`;
-  }).join("");
-
-  document.getElementById("qos").innerHTML = `
-    <div class="sub">今期のバスケット (K=${q.basket.cardinality} 本 / 目的関数 ${q.basket.objective.toFixed(4)}) ${exactMark}</div>
-    <div class="basket">${chips}</div>
-    ${kpis}
-    ${ledger}
-    <div class="verdict none" style="margin-top:.8rem">
-      <b>スケーリングの壁</b>
-      厳密列挙が 10⁹ 候補を超えるのは資産数 <b>n = ${q.exactEnumerationWallAt}</b> から。
-      現在の n=${q.ledgerEntries[0] ? q.ledgerEntries[0].size : "?"} は厳密解が一瞬で出るので、
-      組合せ最適化側に量子の出番は無い。優位が測れているのは振幅推定 (クエリ計算量) の側だけ。
-      CPU 予算 ${q.budgetMs} ms。
-    </div>`;
-}
-
-function renderNews(news) {
-  document.getElementById("news").innerHTML = news.slice(0, 18).map(n =>
-    `<div class="news-item"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><div class="src">${n.source} ${n.pubDate ? "· " + n.pubDate : ""}</div></div>`
-  ).join("");
-}
-
-async function load() {
-  const status = document.getElementById("status");
+async function boot() {
+  const view = document.getElementById("view");
   try {
-    const res = await fetch("/api/snapshot");
-    if (res.status === 503) {
-      // 初回はサーバー側でパイプラインが自動起動する → ポーリングで待つ
-      status.innerHTML = `⏳ 初回データを生成中です… (30〜60秒ほどかかります)<br><span class="sub">世界市場データ収集 → 量子幾何/スペクトル解析 → AIセンチメント</span>`;
-      setTimeout(load, 8000);
-      return;
-    }
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const snap = await res.json();
-    document.getElementById("updated").textContent =
-      "更新: " + new Date(snap.generatedAt).toLocaleString("ja-JP") + " · モデル: " + snap.meta.aiModel;
-    renderQuantum(snap.quantum, snap.sectors);
-    renderSectors(snap.sectors);
-    renderIndices(snap.indices);
-    renderNews(snap.news);
-    status.style.display = "none";
-    document.getElementById("main").style.display = "grid";
+    const [ov, uni, pre] = await Promise.all([
+      api("/api/overview"),
+      S.universe ? Promise.resolve(S.universe) : api("/api/universe"),
+      S.presets ? Promise.resolve(S.presets) : api("/api/presets"),
+    ]);
+    S.overview = ov; S.universe = uni; S.presets = pre;
+    renderChips();
+    render();
   } catch (e) {
-    status.textContent = "読み込みエラー: " + e.message;
+    view.innerHTML = `<div class="panel"><div class="pad">
+      <div class="err">${esc(e.message)}</div>
+      <div class="muted small" style="margin-top:8px">初回はユニバースの収集に数十秒かかります。15秒後に自動で再試行します。</div>
+    </div></div>`;
+    setTimeout(boot, 15000);
   }
 }
-
-async function refresh() {
-  const status = document.getElementById("status");
-  status.textContent = "パイプライン実行中… (30秒ほどかかります)";
-  try {
-    const res = await fetch("/api/refresh", { method: "POST" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    await load();
-  } catch (e) {
-    status.textContent = "実行エラー: " + e.message;
-  }
-}
-
-load();
-setInterval(load, 5 * 60 * 1000);
+boot();
 </script>
 </body>
 </html>

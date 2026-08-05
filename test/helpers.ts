@@ -1,11 +1,11 @@
-import type { Bar, CosmoSpectral, Momentum, QuantumGeometry } from "../src/types.ts";
+import type { Bar } from "../src/types.ts";
 
 /**
- * テスト用の決定論的擬似乱数 (mulberry32)。
+ * テスト用の決定論的な系列生成。
  *
- * Math.random() を使うと、落ちたときに再現できないテストになる。
- * 数理エンジンの検証では「同じ入力なら必ず同じ出力」が前提なので、
- * 系列生成側も決定論的でなければ意味がない。
+ * Math.random() を使うと落ちたときに再現できないテストになる。
+ * 数理エンジンの検証は「同じ入力なら必ず同じ出力」が前提なので、
+ * 乱数側も必ずシード固定にする。
  */
 export function rng(seed: number): () => number {
   let a = seed >>> 0;
@@ -18,40 +18,31 @@ export function rng(seed: number): () => number {
   };
 }
 
-/** 平均 0 付近の i.i.d. 系列 (ランダムウォークの増分) */
-export function whiteNoise(n: number, seed = 1, scale = 0.01): number[] {
-  const r = rng(seed);
-  return Array.from({ length: n }, () => (r() - 0.5) * 2 * scale);
-}
-
-/** 自己相関を持たせた系列 (H > 0.5 側に寄るはず) */
-export function persistent(n: number, seed = 1, phi = 0.85, scale = 0.01): number[] {
-  const r = rng(seed);
-  const out: number[] = [];
-  let prev = 0;
-  for (let i = 0; i < n; i++) {
-    prev = phi * prev + (r() - 0.5) * 2 * scale;
-    out.push(prev);
-  }
-  return out;
-}
-
-/** 符号が交互に反転する系列 (H < 0.5 側に寄るはず) */
-export function meanReverting(n: number, seed = 1, scale = 0.01): number[] {
-  const r = rng(seed);
-  return Array.from({ length: n }, (_, i) =>
-    (i % 2 === 0 ? 1 : -1) * (0.5 + r() * 0.5) * scale
-  );
-}
-
-/** 終値列から Bar[] を作る (t は 1 日刻み) */
-export function bars(closes: number[]): Bar[] {
+/** 終値列から OHLCV バーを作る (高安は終値の ±0.5% に置く) */
+export function bars(closes: number[], volume: number | null = 1_000_000): Bar[] {
   const day = 86400;
-  return closes.map((c, i) => ({ t: 1_700_000_000 + i * day, c }));
+  return closes.map((c, i) => ({
+    t: 1_600_000_000 + i * day,
+    o: c,
+    h: c * 1.005,
+    l: c * 0.995,
+    c,
+    v: volume,
+  }));
 }
 
-/** 一定倍率で伸びる終値列 */
-export function trendingCloses(n: number, start = 100, dailyRate = 0.001): number[] {
+/** 実際の高安を指定できる版 */
+export function ohlc(rows: [number, number, number, number][], volume = 1_000_000): Bar[] {
+  const day = 86400;
+  return rows.map(([o, h, l, c], i) => ({
+    t: 1_600_000_000 + i * day,
+    o, h, l, c,
+    v: volume,
+  }));
+}
+
+/** 一定率で伸びる終値列 */
+export function trending(n: number, start = 100, dailyRate = 0.001): number[] {
   const out: number[] = [];
   let c = start;
   for (let i = 0; i < n; i++) {
@@ -61,23 +52,27 @@ export function trendingCloses(n: number, start = 100, dailyRate = 0.001): numbe
   return out;
 }
 
-/** computeHeatScore の中立入力。ここから 1 要素だけ動かして効果を見る */
-export const NEUTRAL_MOMENTUM: Momentum = {
-  r1w: 0,
-  r1m: 0,
-  r3m: 0,
-  volAdj: 0,
-  trendConsistency: 0.5,
-};
+/** ランダムウォーク (シード固定) */
+export function walk(n: number, seed = 7, start = 100, vol = 0.012): number[] {
+  const r = rng(seed);
+  const out: number[] = [];
+  let c = start;
+  for (let i = 0; i < n; i++) {
+    out.push(c);
+    c *= 1 + (r() - 0.5) * 2 * vol;
+  }
+  return out;
+}
 
-export const NEUTRAL_QUANTUM: QuantumGeometry = {
-  fidelity: 1,
-  fubiniStudy: 0,
-  qfiProxy: 0,
-  entropy: 0,
-};
+/** 正弦波 (レンジ相場の再現用) */
+export function sine(n: number, period = 40, amp = 0.08, start = 100): number[] {
+  return Array.from({ length: n }, (_, i) => start * (1 + amp * Math.sin((2 * Math.PI * i) / period)));
+}
 
-export const NEUTRAL_COSMO: CosmoSpectral = {
-  hurst: 0.5,
-  spectralSlope: 0,
-};
+/** Wilder の RSI 検証で広く使われる終値列 (33本) */
+export const WILDER_CLOSES = [
+  44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08,
+  45.89, 46.03, 45.61, 46.28, 46.28, 46.00, 46.03, 46.41, 46.22, 45.64,
+  46.21, 46.25, 45.71, 46.45, 45.78, 45.35, 44.03, 44.18, 44.22, 44.57,
+  43.42, 42.66, 43.13,
+];
