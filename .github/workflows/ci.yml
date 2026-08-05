@@ -39,3 +39,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # 優位性ベンチマークも CI で回す。README に載せている数字が
+      # コード変更で静かにずれるのを防ぐため (実行時間はマシン依存だが、
+      # クエリ数と近似比は seed 固定で再現する)。
+      - name: Advantage benchmark
+        run: npm run bench

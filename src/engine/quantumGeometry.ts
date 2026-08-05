@@ -1,4 +1,4 @@
-import type { QuantumGeometry } from "../types";
+import type { QuantumGeometry } from "../types.ts";
 
 /**
  * 量子情報幾何エンジン (エッジで動く古典シミュレーション)。

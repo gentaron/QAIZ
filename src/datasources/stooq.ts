@@ -1,4 +1,4 @@
-import type { Bar, Series } from "../types";
+import type { Bar, Series } from "../types.ts";
 
 /**
  * Stooq 日次CSV (キー不要・無料) — Yahoo 失敗時のフォールバック。

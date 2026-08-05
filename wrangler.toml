@@ -34,5 +34,24 @@ crons = ["0 * * * *"]
 [vars]
 # センチメント分析に使うモデル (Workers AI / Meta Llama — 非Google)
 SENTIMENT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+
+# --- 量子OS ---
+# 1回のパイプラインで量子OSに与える CPU 時間 (ms)。
+# 状態ベクトルシミュレーションは指数コストなので、必ず上限を切る。
+# 予算を超えたバックエンドは実行されず、その理由が台帳に残る。
+# Workers 無料プランは 1 実行あたりの CPU 時間が厳しいので、
+# CPU 超過エラーが出るようなら 30 程度まで下げてよい (QAOA は自動で縮退する)。
+QUANTUM_BUDGET_MS = "120"
+# バスケットの選択本数 K (基数制約)
+BASKET_CARDINALITY = "5"
+# テールリスク推定の目標精度 ε
+TAIL_EPSILON = "0.01"
 # 任意: 無料APIキーを追加したい場合は `wrangler secret put FINNHUB_KEY` などで
 # secret として登録する (コードは未設定でも動作するように書かれている)
+#
+# 任意: 実機 QPU に投げたい場合は以下を secret として登録する。
+# 未設定なら量子バックエンドはシミュレータのみで動き、台帳には
+# 「実機は未設定」と明示的に記録される (ダミー結果は返さない)。
+#   wrangler secret put QPU_ENDPOINT   # OpenQASM3 を受け付ける HTTP エンドポイント
+#   wrangler secret put QPU_TOKEN      # Bearer トークン
+#   wrangler secret put QPU_BACKEND    # バックエンド名 (例: ibm_brisbane)

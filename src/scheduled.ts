@@ -1,23 +1,34 @@
-import { GLOBAL_INDICES, SECTORS, VERSION } from "./config";
-import { saveSnapshot } from "./storage";
-import { aiSentiment } from "./ai/sentiment";
-import { fetchGdeltArticles } from "./datasources/gdelt";
-import { fetchAllNews } from "./datasources/rss";
-import { fetchStooqDaily } from "./datasources/stooq";
-import { fetchYahooDaily } from "./datasources/yahoo";
-import { computeCosmoSpectral } from "./engine/cosmology";
-import { computeMomentum, logReturns } from "./engine/momentum";
-import { computeQuantumGeometry } from "./engine/quantumGeometry";
-import { computeHeatScore } from "./engine/scoring";
+import { GLOBAL_INDICES, SECTORS, VERSION } from "./config.ts";
+import { loadLedger, saveLedger, saveSnapshot } from "./storage.ts";
+import { runBasketJob, runTailRiskJob, recordEntries } from "./os/kernel.ts";
+import { basketReturns, covarianceMatrix } from "./problems/basket.ts";
+import type { LedgerEntry } from "./os/ledger.ts";
+import { aiSentiment } from "./ai/sentiment.ts";
+import { fetchGdeltArticles } from "./datasources/gdelt.ts";
+import { fetchAllNews } from "./datasources/rss.ts";
+import { fetchStooqDaily } from "./datasources/stooq.ts";
+import { fetchYahooDaily } from "./datasources/yahoo.ts";
+import { computeCosmoSpectral } from "./engine/cosmology.ts";
+import { computeMomentum, logReturns } from "./engine/momentum.ts";
+import { computeQuantumGeometry } from "./engine/quantumGeometry.ts";
+import { computeHeatScore } from "./engine/scoring.ts";
 import type {
   Env,
   GlobalIndexQuote,
+  LedgerEntrySummary,
   NewsItem,
+  QuantumDecision,
   SectorDef,
   SectorScore,
   Series,
   Snapshot,
-} from "./types";
+} from "./types.ts";
+
+/** スコア済みセクターと、量子OSに渡すためのリターン系列 */
+export interface ScoredSector {
+  score: SectorScore;
+  returns: number[];
+}
 
 /** 並列数を抑えた Promise 実行 (外部APIへの礼儀 + Workers サブリクエスト制限対策) */
 async function mapWithConcurrency<T, R>(
@@ -78,7 +89,7 @@ async function scoreSector(
   sector: SectorDef,
   generalNews: NewsItem[],
   errors: string[]
-): Promise<SectorScore | null> {
+): Promise<ScoredSector | null> {
   const series = await fetchSeriesWithFallback(sector, errors);
   if (!series) return null;
 
@@ -105,14 +116,17 @@ async function scoreSector(
   );
 
   return {
-    sector,
-    momentum,
-    quantum,
-    cosmo,
-    sentiment,
-    heat,
-    lastClose: series.bars[series.bars.length - 1].c,
-    spark,
+    score: {
+      sector,
+      momentum,
+      quantum,
+      cosmo,
+      sentiment,
+      heat,
+      lastClose: series.bars[series.bars.length - 1].c,
+      spark,
+    },
+    returns,
   };
 }
 
@@ -144,7 +158,118 @@ async function fetchIndexQuote(idx: {
   }
 }
 
-/** パイプライン本体: 収集 → 数理エンジン → AI → KV 保存 */
+function envNumber(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * 量子OSを起動して「今週どのセクターを何本持つか」と「その尾リスク」を決める。
+ *
+ * ここが v0.1 との決定的な違い。従来はヒートスコアを並べて終わりだったので、
+ * 計算量的に難しい問題がどこにも存在せず、量子を挿す場所が原理的に無かった。
+ * 基数制約付き選択 (NP困難) と確率推定 (振幅推定の対象) を通したことで、
+ * はじめて「量子バックエンドを差し込める配管」と「その効果を測る尺度」が生まれる。
+ */
+export function runQuantumOs(
+  scored: ScoredSector[],
+  env: Pick<Env, "QUANTUM_BUDGET_MS" | "BASKET_CARDINALITY" | "TAIL_EPSILON">,
+  errors: string[]
+): { decision: QuantumDecision | null; entries: LedgerEntry[] } {
+  const budgetMs = envNumber(env.QUANTUM_BUDGET_MS, 120);
+  const cardinality = Math.round(envNumber(env.BASKET_CARDINALITY, 5));
+  const epsilon = envNumber(env.TAIL_EPSILON, 0.01);
+
+  // 共分散を作るには系列長が揃っている必要がある。直近 120 営業日で切り揃える。
+  const window = 120;
+  const usable = scored.filter((s) => s.returns.length >= window);
+  if (usable.length < cardinality + 1) {
+    errors.push(`quantum-os:insufficient-data:${usable.length}`);
+    return { decision: null, entries: [] };
+  }
+
+  const ids = usable.map((s) => s.score.sector.id);
+  const returns = usable.map((s) => s.returns.slice(-window));
+  const mu = Float64Array.from(usable.map((s) => s.score.heat / 100));
+  const sigma = covarianceMatrix(returns);
+
+  // リスク回避係数: μ が [0,1]、日次分散が 1e-4 オーダーなので、
+  // 両者が同じ桁で効くように正規化する (でないと片方が完全に無視される)。
+  const meanVar =
+    Array.from({ length: ids.length }, (_, i) => sigma[i * ids.length + i]).reduce(
+      (a, b) => a + b,
+      0
+    ) / ids.length;
+  const riskAversion = meanVar > 0 ? 0.5 / meanVar : 1;
+
+  try {
+    const basketJob = runBasketJob(
+      { ids, mu, sigma, cardinality, riskAversion },
+      { budgetMs: budgetMs * 0.7, seed: 20260805 }
+    );
+
+    const br = basketReturns(returns, basketJob.solution.mask);
+    const riskJob = runTailRiskJob(
+      { returns: br, epsilon, bins: 32, confidence: 0.95 },
+      { budgetMs: budgetMs * 0.3, seed: 20260805 }
+    );
+
+    const entries = [basketJob.entry, riskJob.entry];
+    const decision: QuantumDecision = {
+      basket: {
+        ids: basketJob.solution.selected,
+        cardinality,
+        riskAversion,
+        expectedReturn: basketJob.solution.expectedReturn,
+        variance: basketJob.solution.variance,
+        objective: basketJob.solution.objective,
+        feasible: basketJob.solution.feasible,
+        matchesExact: basketJob.exact
+          ? basketJob.exact.mask === basketJob.solution.mask
+          : null,
+      },
+      risk: {
+        varThreshold: riskJob.risk.varThreshold,
+        cvar: riskJob.risk.cvar,
+        tailProbability: riskJob.risk.exactTailProbability,
+        quantumEstimate: riskJob.risk.quantum.estimate,
+        epsilon: riskJob.risk.epsilon,
+        oracleCalls: riskJob.risk.quantum.oracleCalls,
+        classicalSamples: riskJob.risk.classical.requiredSamples,
+        queryAdvantage: riskJob.risk.queryAdvantage,
+        qubits: riskJob.risk.qubits,
+      },
+      ledgerEntries: entries.map(summarizeEntry),
+      exactEnumerationWallAt: basketJob.exactWallAt,
+      budgetMs,
+    };
+    return { decision, entries };
+  } catch (e) {
+    errors.push(`quantum-os:${String(e)}`);
+    return { decision: null, entries: [] };
+  }
+}
+
+function summarizeEntry(e: LedgerEntry): LedgerEntrySummary {
+  return {
+    ts: e.ts,
+    problem: e.problem,
+    size: e.size,
+    verdict: e.verdict,
+    summary: e.summary,
+    runs: e.runs.map((r) => ({
+      backend: r.backend,
+      kind: r.kind,
+      wallMs: Math.round(r.wallMs * 10) / 10,
+      queries: r.queries,
+      ok: r.ok,
+      error: r.error,
+    })),
+    approximationRatio: e.quality?.approximationRatio,
+  };
+}
+
+/** パイプライン本体: 収集 → 数理エンジン → AI → 量子OS → 永続化 */
 export async function runPipeline(env: Env): Promise<Snapshot> {
   const errors: string[] = [];
 
@@ -158,18 +283,22 @@ export async function runPipeline(env: Env): Promise<Snapshot> {
     mapWithConcurrency(GLOBAL_INDICES, 4, fetchIndexQuote),
   ]);
 
-  const sectors = sectorResults
-    .filter((s): s is SectorScore => s !== null)
+  const scored = sectorResults.filter((s): s is ScoredSector => s !== null);
+  const sectors = scored
+    .map((s) => s.score)
     .sort((a, b) => b.heat - a.heat);
   const indices = indexResults.filter(
     (i): i is GlobalIndexQuote => i !== null
   );
+
+  const { decision, entries } = runQuantumOs(scored, env, errors);
 
   const snapshot: Snapshot = {
     generatedAt: new Date().toISOString(),
     sectors,
     indices,
     news: generalNews.slice(0, 40),
+    quantum: decision,
     meta: {
       version: VERSION,
       dataSources: ["yahoo-finance", "stooq", "rss", "gdelt"],
@@ -179,5 +308,9 @@ export async function runPipeline(env: Env): Promise<Snapshot> {
   };
 
   await saveSnapshot(env, snapshot);
+  if (entries.length > 0) {
+    const ledger = await loadLedger(env).catch(() => null);
+    await saveLedger(env, recordEntries(ledger, entries)).catch(() => {});
+  }
   return snapshot;
 }

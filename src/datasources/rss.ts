@@ -1,5 +1,5 @@
-import type { NewsItem } from "../types";
-import { RSS_FEEDS } from "../config";
+import type { NewsItem } from "../types.ts";
+import { RSS_FEEDS } from "../config.ts";
 
 /**
  * RSS/Atom フィード取り込み (キー不要・無料)。

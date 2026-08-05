@@ -1,4 +1,4 @@
-import type { Bar, Momentum } from "../types";
+import type { Bar, Momentum } from "../types.ts";
 
 /** 終値列から対数リターン列を得る */
 export function logReturns(bars: Bar[]): number[] {

@@ -5,9 +5,19 @@ export interface Env {
   AI: Ai;
   SNAPSHOT_DO: DurableObjectNamespace;
   SENTIMENT_MODEL: string;
+  /** 量子OSに割り当てる CPU 予算 (ms)。文字列で入るので数値化して使う */
+  QUANTUM_BUDGET_MS?: string;
+  /** バスケットの選択本数 */
+  BASKET_CARDINALITY?: string;
+  /** テールリスク推定の目標精度 */
+  TAIL_EPSILON?: string;
   /** 任意の無料APIキー (未設定でも全機能が動作する) */
   FINNHUB_KEY?: string;
   ALPHAVANTAGE_KEY?: string;
+  /** 任意: 実機 QPU (未設定ならシミュレータのみで動作する) */
+  QPU_ENDPOINT?: string;
+  QPU_TOKEN?: string;
+  QPU_BACKEND?: string;
 }
 
 /** 日次バー (終値ベース) */
@@ -102,12 +112,68 @@ export interface GlobalIndexQuote {
   r1m: number;
 }
 
-/** cron パイプラインが KV に保存するスナップショット全体 */
+/**
+ * 量子OSが毎時解く「決定」の出力。
+ * ランキングを出すだけだった QAIZ に、実際の建玉候補とその尾リスクを持たせる。
+ */
+export interface QuantumDecision {
+  /** 選ばれたセクター (基数制約付き平均分散最適化の解) */
+  basket: {
+    ids: string[];
+    cardinality: number;
+    riskAversion: number;
+    expectedReturn: number;
+    variance: number;
+    objective: number;
+    feasible: boolean;
+    /** 厳密解と一致したか (厳密解が取れた場合のみ) */
+    matchesExact: boolean | null;
+  };
+  /** 選ばれたバスケットのテールリスク */
+  risk: {
+    varThreshold: number;
+    cvar: number;
+    tailProbability: number;
+    quantumEstimate: number;
+    epsilon: number;
+    oracleCalls: number;
+    classicalSamples: number;
+    queryAdvantage: number;
+    qubits: number;
+  };
+  /** バックエンド横並びの実測ログ */
+  ledgerEntries: LedgerEntrySummary[];
+  /** 厳密列挙が 10⁹ 候補を超える資産数 = 量子の出番が始まりうる境界 */
+  exactEnumerationWallAt: number;
+  budgetMs: number;
+}
+
+/** ダッシュボード/API に載せる台帳エントリの縮約形 */
+export interface LedgerEntrySummary {
+  ts: string;
+  problem: string;
+  size: number;
+  verdict: { kind: string; reason?: string; factor?: number; note?: string };
+  summary: string;
+  runs: {
+    backend: string;
+    kind: string;
+    wallMs: number;
+    queries: number;
+    ok: boolean;
+    error?: string;
+  }[];
+  approximationRatio?: number;
+}
+
+/** cron パイプラインが Durable Object に保存するスナップショット全体 */
 export interface Snapshot {
   generatedAt: string;
   sectors: SectorScore[];
   indices: GlobalIndexQuote[];
   news: NewsItem[];
+  /** 量子OSの出力 (計算が間に合わなかった場合は null) */
+  quantum: QuantumDecision | null;
   meta: {
     version: string;
     dataSources: string[];
