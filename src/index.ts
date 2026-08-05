@@ -411,7 +411,11 @@ export default {
       try {
         return await handleApi(request, env, ctx, url);
       } catch (e) {
-        return json({ error: "internal error", detail: String(e).slice(0, 200) }, 500);
+        // 例外の中身をレスポンスに載せない。スタックトレースや内部パスが
+        // そのまま外に出るうえ、この API は認証なしで誰でも叩ける。
+        // 調査に必要な情報はログ側に出す (`wrangler tail` で読める)。
+        console.error("api error", url.pathname, e);
+        return json({ error: "internal error", path: url.pathname }, 500);
       }
     }
 

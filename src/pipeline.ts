@@ -74,6 +74,19 @@ function envInt(v: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+/**
+ * 例外を診断ラベルに落とす。
+ *
+ * meta.errors は認証なしの /api/meta から読めるので、例外オブジェクトを
+ * そのまま文字列化して積んではいけない。取り出すのは種別とメッセージだけに
+ * 限定し、スタックや内部パスが混ざる経路を作らない。
+ * (`String(e)` は現状 name: message になるが、それに依存せず明示的に絞る。)
+ */
+function errorLabel(e: unknown, max = 80): string {
+  const raw = e instanceof Error ? `${e.name}: ${e.message}` : "unknown error";
+  return raw.replace(/\s+/g, " ").slice(0, max);
+}
+
 /** ファンダメンタルズを取りに行く価値がある銘柄か */
 function wantsFundamentals(inst: Instrument): boolean {
   // 指数・為替・商品・ETF には PER も ROE も無い。取りに行くだけ予算の無駄。
@@ -90,14 +103,14 @@ async function fetchOne(
     const s = await fetchYahooChart(inst.symbol);
     if (s) return { ...s, currency: s.currency || inst.currency };
   } catch (e) {
-    errors.push(`yahoo:${inst.symbol}:${String(e).slice(0, 80)}`);
+    errors.push(`yahoo:${inst.symbol}:${errorLabel(e)}`);
   }
   if (inst.stooq && budget.take(`stooq:${inst.symbol}`)) {
     try {
       const s = await fetchStooqDaily(inst.stooq, inst.symbol, inst.currency);
       if (s) return s;
     } catch (e) {
-      errors.push(`stooq:${inst.symbol}:${String(e).slice(0, 80)}`);
+      errors.push(`stooq:${inst.symbol}:${errorLabel(e)}`);
     }
   }
   errors.push(`no-price:${inst.symbol}`);
@@ -298,7 +311,7 @@ export async function runPipeline(
         if (qs) fundamentals.set(inst.symbol, qs);
         else errors.push(`fundamentals:${inst.symbol}:取得不可`);
       } catch (e) {
-        errors.push(`fundamentals:${inst.symbol}:${String(e).slice(0, 60)}`);
+        errors.push(`fundamentals:${inst.symbol}:${errorLabel(e, 60)}`);
       }
     });
   }
