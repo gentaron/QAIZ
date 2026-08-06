@@ -6,6 +6,7 @@
   "description": "QAIZ — Quantitative Analyst Intelligence Zone: 地域×セクターの株式をバリュエーション・クオリティ・成長・テクニカル・リスク・アナリストコンセンサスで横断分析する Cloudflare Workers 製ダッシュボード",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:mock": "node dev/mock-server.mjs",
     "deploy": "wrangler deploy",
     "types": "wrangler types",
     "tail": "wrangler tail",
