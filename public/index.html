@@ -14,7 +14,11 @@
   --sans:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP","Segoe UI",sans-serif;
 }
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.5}
+/* 横スクロールは各コンテナの中だけで起こす。body 自体が横に動くと
+   「戻れない画面」になってスマホでの操作が破綻する */
+body{overflow-x:hidden}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
@@ -45,6 +49,8 @@ main{padding:14px 16px 60px;max-width:1900px;margin:0 auto}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .panel>h3{margin:0;padding:9px 12px;font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
 .panel>h3 .hint{font-weight:400;letter-spacing:0;font-size:10.5px;color:var(--dim)}
+/* パネル見出しに置く切り替えセレクト */
+.hsel{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px}
 .pad{padding:12px}
 
 table{width:100%;border-collapse:collapse;font-size:12px}
@@ -65,7 +71,7 @@ tbody tr.click{cursor:pointer}
 .tag.s{background:rgba(234,57,67,.13);border-color:rgba(234,57,67,.35);color:var(--neg)}
 .tag.c{background:rgba(240,180,41,.12);border-color:rgba(240,180,41,.35);color:var(--warn)}
 
-.heatgrid{display:grid;gap:3px;padding:12px;overflow-x:auto}
+.heatgrid{display:grid;grid-template-columns:auto 1fr;gap:3px;padding:12px;overflow-x:auto}
 .hcell{border-radius:5px;padding:7px 8px;min-width:118px;cursor:pointer;border:1px solid transparent;transition:transform .08s}
 .hcell:hover{border-color:#fff3;transform:translateY(-1px)}
 .hcell .n{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -93,6 +99,8 @@ tbody tr.click{cursor:pointer}
 .frow{display:flex;gap:5px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
 .frow button{background:none;border:none;color:var(--muted);cursor:pointer;padding:0 3px}
 .frow button:hover{color:var(--neg)}
+.fgroup{display:flex;align-items:center;gap:6px}
+.fbtns{display:flex;gap:6px;flex-wrap:wrap}
 
 .preset{border:1px solid var(--line);background:var(--panel2);border-radius:7px;padding:8px 10px;cursor:pointer;text-align:left}
 .preset:hover{border-color:var(--accent)}
@@ -107,13 +115,132 @@ tbody tr.click{cursor:pointer}
 .newsitem{padding:6px 12px;border-bottom:1px solid #161d28;font-size:12px}
 .newsitem .src{color:var(--dim);font-size:10.5px}
 
-#modal{position:fixed;inset:0;background:rgba(4,6,10,.82);display:none;z-index:100;overflow:auto;padding:24px}
+#modal{position:fixed;inset:0;background:rgba(4,6,10,.82);display:none;z-index:100;overflow:auto;padding:24px;-webkit-overflow-scrolling:touch}
 #modal.on{display:block}
 .sheet{max-width:1280px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:12px}
 .sheet-h{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:2;border-radius:12px 12px 0 0;flex-wrap:wrap}
 .sheet-h h2{margin:0;font-size:17px}
 .close{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;width:28px;height:28px;cursor:pointer}
 .close:hover{color:var(--neg);border-color:var(--neg)}
+
+/* ------------------------------------------------------------------ *
+ * レイアウトの列定義
+ *
+ * 列数はインラインスタイルではなくクラスで持つ。インラインだと
+ * メディアクエリで上書きできず、!important を撒く羽目になる。
+ * ------------------------------------------------------------------ */
+.grid.cols-3{grid-template-columns:minmax(300px,1fr) minmax(300px,1fr) minmax(280px,.85fr)}
+.grid.cols-main-side{grid-template-columns:1.5fr 1fr}
+.grid.cols-main-side-narrow{grid-template-columns:1.1fr .9fr}
+.grid.cols-main-fixed{grid-template-columns:1fr 340px}
+.grid.cols-cards{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.grid.cols-presets{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+
+/* SVG は viewBox で縮むが、幅 390px の画面に 1180 幅のチャートを
+   押し込むと軸ラベルが 5px 相当になって読めない。一定幅を保って
+   横スクロールさせるほうが、潰して見せるより実用的 */
+.chartwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.chartwrap>svg{display:block}
+
+/* ------------------------------------------------------------------ *
+ * レスポンシブ
+ * ------------------------------------------------------------------ */
+
+@media (max-width:1150px){
+  .grid.cols-3{grid-template-columns:1fr 1fr}
+  .grid.cols-main-fixed{grid-template-columns:1fr}
+}
+
+@media (max-width:860px){
+  .grid.cols-3,
+  .grid.cols-main-side,
+  .grid.cols-main-side-narrow{grid-template-columns:1fr}
+  main{padding:12px 12px 60px}
+}
+
+/* ---- スマートフォン ---- */
+@media (max-width:640px){
+  body{font-size:13.5px}
+
+  /* ノッチ端末の左右セーフエリアを確保する */
+  .hbar{padding:8px max(10px,env(safe-area-inset-left)) 8px max(10px,env(safe-area-inset-right));gap:8px}
+  main{padding:10px max(8px,env(safe-area-inset-left)) 72px max(8px,env(safe-area-inset-right))}
+
+  .brand{font-size:14px}
+  .tagline{display:none}
+  #stamp{width:100%;order:9}
+  nav{padding:0 4px}
+  nav button{padding:11px 12px;font-size:13px}
+
+  .panel{border-radius:7px}
+  .panel>h3{padding:9px 10px;font-size:11.5px}
+  .panel>h3 .hint{display:none}
+  .pad{padding:10px}
+  .note{padding:8px 10px}
+
+  /* 入力系は 16px 未満だと iOS Safari がフォーカス時に自動ズームする。
+     ズームすると画面幅が変わって表がずれるので、必ず 16px 以上にする */
+  input,select,textarea{font-size:16px}
+  /* 見出し内セレクトは指で押せる高さを確保する (既定の 27px では小さすぎる) */
+  .hsel{min-height:40px;padding:8px 10px;margin-left:0;width:100%}
+  .panel>h3{flex-wrap:wrap;gap:6px}
+  button.act{min-height:40px;padding:8px 14px;font-size:13px}
+  .filters{padding:10px;gap:10px;flex-direction:column;align-items:stretch}
+  .fgroup{flex-direction:column;align-items:stretch;gap:3px}
+  /* multiple select は size=1 のままだと 1 行分の高さに潰れ、
+     選択済みの項目すら読めなくなる。候補が 3 件見える高さを与える */
+  .filters select[multiple]{height:104px}
+  .fbtns{width:100%}
+  .fbtns button{flex:1 1 0;min-width:96px}
+  .filters select,.filters input{padding:7px 8px}
+  .filters input[type=number]{width:92px}
+  .frow{flex-wrap:wrap;width:100%}
+  .frow select{flex:1 1 auto;min-width:0}
+  .frow button[data-role=del]{min-width:32px;min-height:32px}
+
+  /* 表: 縦は画面ごとスクロールさせる。入れ子のスクロール領域は
+     指が表の上にあるとページが動かせなくなり、スマホで最悪の体験になる */
+  .scroll{max-height:none;overflow-x:auto;overflow-y:visible}
+  th{position:static}
+  td,th{padding:7px 8px}
+  table{font-size:12px}
+  /* 横スクロール中も銘柄名を見失わないよう先頭列を固定する */
+  td:first-child,th:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+
+  .heatgrid{grid-template-columns:1fr;padding:10px;gap:6px}
+  .hrow-label{padding:2px 0;font-weight:600;color:var(--text);border-bottom:1px solid var(--line)}
+  .hcell{min-width:0;flex:1 1 calc(50% - 3px)}
+
+  .kv{font-size:12.5px}
+
+  /* モーダルは全面表示にする。余白を残すと本文の幅が足りない */
+  #modal{padding:0}
+  .sheet{border:none;border-radius:0;min-height:100%}
+  .sheet-h{border-radius:0;padding:10px max(10px,env(safe-area-inset-left));gap:8px}
+  .sheet-h h2{font-size:16px;width:100%}
+  .sheet-h .close{position:absolute;top:8px;right:10px;width:36px;height:36px}
+  .sheet-h>.spacer{display:none}
+  .sheet>div{padding:10px !important}
+
+  .chartwrap>svg{min-width:600px}
+  .rrgwrap{overflow-x:auto}
+  .rrgwrap>svg{min-width:560px}
+}
+
+/* ---- 小型スマートフォン ---- */
+@media (max-width:380px){
+  .hcell{flex:1 1 100%}
+  .brand{font-size:13px}
+  nav button{padding:10px 9px;font-size:12.5px}
+}
+
+/* ---- 指で操作している端末 ---- */
+@media (hover:none){
+  /* ホバー前提の表現をタップ環境で残すと「押したのに何も起きない」に見える */
+  tbody tr:hover{background:transparent}
+  tbody tr.click:active{background:#1b2432}
+  .hcell:hover{transform:none}
+}
 </style>
 </head>
 <body>
@@ -226,7 +353,17 @@ function table(rows, cols, opts = {}) {
   const id = "t" + Math.random().toString(36).slice(2, 8);
   const st = { key: opts.sortKey || null, dir: opts.sortDir || "desc" };
 
-  function get(r, k) { return k.split(".").reduce((a, p) => (a == null ? null : a[p]), r); }
+  /*
+   * 行データには 2 つの形が来る:
+   *   1. /api/screener の射影済み行 — キー自体が "factors.composite" (ドット込みのフラット)
+   *   2. セクター集計など、そのままのオブジェクト — "heat" や入れ子の "instrument.symbol"
+   * まずキーをそのまま引き、無ければ階層パスとして辿る。
+   * 階層パスだけで実装すると 1 が全部 null になり、表が空欄で埋まる。
+   */
+  function get(r, k) {
+    if (r != null && typeof r === "object" && k in r) return r[k];
+    return k.split(".").reduce((a, p) => (a == null ? null : a[p]), r);
+  }
   function render() {
     let data = [...rows];
     if (st.key) {
@@ -271,7 +408,7 @@ function viewOverview() {
   const d = S.overview;
   if (!d) return `<div class="loading">読み込み中…</div>`;
   return `
-  <div class="grid" style="grid-template-columns:minmax(320px,1fr) minmax(320px,1fr) minmax(300px,.85fr)">
+  <div class="grid cols-3">
     ${panelRegime(d.regime)}
     ${panelBreadth(d.breadth)}
     ${panelMacro(d.macro)}
@@ -279,7 +416,7 @@ function viewOverview() {
   <div style="height:12px"></div>
   ${panelHeatmap(d.sectors)}
   <div style="height:12px"></div>
-  <div class="grid" style="grid-template-columns:1.5fr 1fr">
+  <div class="grid cols-main-side">
     ${panelLeaders(d.leaders, d.laggards)}
     ${panelNews(d.news)}
   </div>
@@ -373,11 +510,11 @@ function panelHeatmap(sectors) {
 
   return `<div class="panel">
     <h3>地域 × セクター ヒートマップ
-      <select id="heatmetric" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+      <select id="heatmetric" class="hsel">
         ${opts.map(([k, t]) => `<option value="${k}" ${k === metric ? "selected" : ""}>${t}</option>`).join("")}
       </select>
     </h3>
-    <div class="heatgrid" style="grid-template-columns:auto 1fr">${body}</div>
+    <div class="heatgrid">${body}</div>
     <div class="note">ヒートスコアは 3ヶ月/1ヶ月リターン・テクニカル平均・200日線超え比率・予想PER を <b>地域内で</b> 標準化して合成したもの [0-100]。地域内で標準化するのは、通貨と市場水準の差を落とすため。クリックで代表ETFの詳細へ。</div>
   </div>`;
 }
@@ -476,7 +613,7 @@ function viewSectors() {
   ];
   return `<div class="panel">
     <h3>地域 × セクター 一覧
-      <select id="secregion" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+      <select id="secregion" class="hsel">
         <option value="ALL">全地域</option>
         ${regions.map((r) => `<option value="${r}" ${r === sel ? "selected" : ""}>${esc(regionName(r))}</option>`).join("")}
       </select>
@@ -542,7 +679,7 @@ function viewScreener() {
   return `
   <div class="panel">
     <h3>プリセット <span class="hint">実務でよく使う条件の組み合わせ</span></h3>
-    <div class="pad" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px">
+    <div class="pad grid cols-presets" style="gap:8px">
       ${presets.map((p) => `<button class="preset ${SCREEN.preset === p.id ? "on" : ""}" data-preset="${p.id}">
         <b>${esc(p.nameJa)}</b><span>${esc(p.description)}</span></button>`).join("")}
     </div>
@@ -551,23 +688,31 @@ function viewScreener() {
   <div class="panel">
     <h3>条件</h3>
     <div class="filters">
-      <span class="muted small">地域</span>
-      <select id="sc-region" multiple size="1" style="min-width:110px">
-        ${(u ? u.regions : []).map((r) => `<option value="${r.id}" ${SCREEN.regions.includes(r.id) ? "selected" : ""}>${esc(r.nameJa)}</option>`).join("")}
-      </select>
-      <span class="muted small">セクター</span>
-      <select id="sc-sector" multiple size="1" style="min-width:120px">
-        ${(u ? u.sectors : []).map((s) => `<option value="${s.id}" ${SCREEN.sectors.includes(s.id) ? "selected" : ""}>${esc(s.nameJa)}</option>`).join("")}
-      </select>
-      <span class="muted small">種別</span>
-      <select id="sc-role">
-        <option value="constituent" ${SCREEN.roles[0] === "constituent" ? "selected" : ""}>個別株</option>
-        <option value="sector-proxy" ${SCREEN.roles[0] === "sector-proxy" ? "selected" : ""}>セクターETF</option>
-        <option value="" ${!SCREEN.roles.length ? "selected" : ""}>すべて</option>
-      </select>
-      <button class="act" id="sc-add">＋ 条件を追加</button>
-      <button class="act" id="sc-run">実行</button>
-      <button class="act" id="sc-clear">クリア</button>
+      <div class="fgroup">
+        <span class="muted small">地域</span>
+        <select id="sc-region" multiple size="1" style="min-width:110px">
+          ${(u ? u.regions : []).map((r) => `<option value="${r.id}" ${SCREEN.regions.includes(r.id) ? "selected" : ""}>${esc(r.nameJa)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="fgroup">
+        <span class="muted small">セクター</span>
+        <select id="sc-sector" multiple size="1" style="min-width:120px">
+          ${(u ? u.sectors : []).map((s) => `<option value="${s.id}" ${SCREEN.sectors.includes(s.id) ? "selected" : ""}>${esc(s.nameJa)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="fgroup">
+        <span class="muted small">種別</span>
+        <select id="sc-role">
+          <option value="constituent" ${SCREEN.roles[0] === "constituent" ? "selected" : ""}>個別株</option>
+          <option value="sector-proxy" ${SCREEN.roles[0] === "sector-proxy" ? "selected" : ""}>セクターETF</option>
+          <option value="" ${!SCREEN.roles.length ? "selected" : ""}>すべて</option>
+        </select>
+      </div>
+      <div class="fbtns">
+        <button class="act" id="sc-add">＋ 条件を追加</button>
+        <button class="act" id="sc-run">実行</button>
+        <button class="act" id="sc-clear">クリア</button>
+      </div>
       <span class="spacer"></span>
       <span id="sc-count" class="muted small"></span>
     </div>
@@ -664,7 +809,7 @@ function viewRotation() {
   const use = pts.filter((p) => p.region === sel);
   return `<div class="panel">
     <h3>セクターローテーション (RRG風)
-      <select id="rotregion" style="margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:5px;padding:3px 6px">
+      <select id="rotregion" class="hsel">
         ${regions.map((r) => `<option value="${r}" ${r === sel ? "selected" : ""}>${esc(regionName(r))}</option>`).join("")}
       </select>
     </h3>
@@ -721,7 +866,7 @@ function rrgSvg(pts) {
       <text x="${X(p.rsRatio) + 9}" y="${Y(p.rsMomentum) + 4}" fill="#d7dee9" font-size="10.5">${esc(p.name.replace(/^(米国|日本|欧州)\s*/, ""))}</text>`;
   }).join("");
 
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto">
+  return `<div class="rrgwrap"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto">
     <rect x="${P}" y="${P}" width="${W - P * 2}" height="${H - P * 2}" fill="#0e131c" stroke="#1e2735"/>
     ${quads}
     <line x1="${cx}" y1="${P}" x2="${cx}" y2="${H - P}" stroke="#2a3547" stroke-dasharray="3 3"/>
@@ -729,7 +874,7 @@ function rrgSvg(pts) {
     ${marks}
     <text x="${W / 2}" y="${H - 12}" text-anchor="middle" fill="#7b8798" font-size="11">RS-Ratio (相対力) →</text>
     <text x="14" y="${H / 2}" text-anchor="middle" fill="#7b8798" font-size="11" transform="rotate(-90 14 ${H / 2})">RS-Momentum (相対力の変化) →</text>
-  </svg>`;
+  </svg></div>`;
 }
 
 /* ================================================================== *
@@ -739,7 +884,12 @@ function viewRisk() {
   const c = S.overview.correlation;
   if (!c) return `<div class="panel"><h3>相関</h3><div class="pad muted">相関行列を計算できる銘柄がまだ揃っていません。</div></div>`;
   const n = c.symbols.length;
-  const head = c.labels.map((l, i) => `<th title="${esc(c.symbols[i])}" style="writing-mode:vertical-rl;height:96px;font-weight:500">${esc(l)}</th>`).join("");
+  // 縦書きの列見出しは長いほど上に伸びて見切れる。地域の接頭辞を落として
+  // 短くし、完全な名前は title に残す (行側の見出しはフルのまま出している)
+  const shortLabel = (l) => l.replace(/^(米国|日本|欧州|英国)\s*/, "");
+  const head = c.labels.map((l, i) =>
+    `<th title="${esc(l)} (${esc(c.symbols[i])})" style="writing-mode:vertical-rl;height:112px;vertical-align:bottom;font-weight:500;white-space:nowrap">${esc(shortLabel(l))}</th>`
+  ).join("");
   const body = c.labels.map((l, i) => `<tr>
     <td class="l" style="position:sticky;left:0;background:var(--panel);font-family:var(--sans)">${esc(l)}</td>
     ${c.symbols.map((_, j) => {
@@ -753,7 +903,7 @@ function viewRisk() {
   const loadings = c.symbols.map((s, i) => ({ s, l: c.pc1Loadings[i], n: c.labels[i] })).sort((a, b) => Math.abs(b.l) - Math.abs(a.l));
 
   return `
-  <div class="grid" style="grid-template-columns:1fr 340px">
+  <div class="grid cols-main-fixed">
     <div class="panel">
       <h3>相関行列 <span class="hint">直近${c.window}営業日の対数リターン</span></h3>
       <div class="scroll" style="max-height:70vh"><table style="font-size:10.5px">
@@ -806,6 +956,10 @@ async function openSymbol(sym) {
   const modal = document.getElementById("modal");
   const sheet = document.getElementById("sheet");
   modal.classList.add("on");
+  // 背面のページをスクロールさせない。これをやらないと、スマホでシートを
+  // 送ったつもりが後ろの一覧だけが動き、閉じたときに全く違う位置にいる
+  document.body.style.overflow = "hidden";
+  modal.scrollTop = 0;
   sheet.innerHTML = `<div class="loading">${esc(sym)} を読み込み中…</div>`;
   try {
     const [d, hist] = await Promise.all([
@@ -820,7 +974,10 @@ async function openSymbol(sym) {
     sheet.querySelectorAll("[data-close]").forEach((b) => b.onclick = closeModal);
   }
 }
-function closeModal() { document.getElementById("modal").classList.remove("on"); }
+function closeModal() {
+  document.getElementById("modal").classList.remove("on");
+  document.body.style.overflow = "";
+}
 
 function symbolSheet(d, hist) {
   const r = d.record, i = r.instrument, p = r.price, t = r.technicals, k = r.risk, f = r.fundamentals, c = r.consensus;
@@ -840,7 +997,7 @@ function symbolSheet(d, hist) {
   <div style="padding:12px">
     ${hist ? `<div class="panel" style="margin-bottom:12px"><h3>チャート <span class="hint">終値 + 50/200日線 / 出来高 / RSI(14)</span></h3><div class="pad">${priceChart(hist, t)}</div></div>` : ""}
 
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+    <div class="grid cols-cards">
       ${panelReturns(p, k)}
       ${panelTech(t)}
       ${panelValuation(r)}
@@ -850,7 +1007,7 @@ function symbolSheet(d, hist) {
     </div>
 
     <div style="height:12px"></div>
-    <div class="grid" style="grid-template-columns:1.1fr .9fr">
+    <div class="grid cols-main-side-narrow">
       ${panelSignals(r.signals)}
       <div>
         ${panelFactors(r.factors)}
@@ -922,7 +1079,7 @@ function priceChart(hist, t) {
   const rsiPts = rsi.map((v, i) => (isN(v) ? `${X(i)},${RY(v)}` : null)).filter(Boolean).join(" ");
 
   const tot = H + VH + RH + 16;
-  return `<svg viewBox="0 0 ${W} ${tot}" style="width:100%;height:auto">
+  return `<div class="chartwrap"><svg viewBox="0 0 ${W} ${tot}" style="width:100%;height:auto">
     ${grid}
     ${line(cs, "#d7dee9", 1.4)}
     ${line(sma(50), "#4cc9f0", 1.1)}
@@ -936,7 +1093,7 @@ function priceChart(hist, t) {
     <text x="${P - 6}" y="${RY(70) + 3}" text-anchor="end" fill="#5c6779" font-size="9" font-family="monospace">70</text>
     <text x="${P - 6}" y="${RY(30) + 3}" text-anchor="end" fill="#5c6779" font-size="9" font-family="monospace">30</text>
     <text x="${P}" y="${H + VH + 8}" fill="#5c6779" font-size="10">RSI(14)</text>
-  </svg>
+  </svg></div>
   <div class="small muted" style="text-align:right">${esc(hist.source)} · ${bars.length}本 · ${esc(bars[0] ? new Date(bars[0].t*1000).toISOString().slice(0,10) : "")} 〜 ${esc(bars.length ? new Date(bars[bars.length-1].t*1000).toISOString().slice(0,10) : "")}</div>`;
 }
 
@@ -1258,8 +1415,13 @@ function attach() {
   const rr = document.getElementById("rotregion");
   if (rr) rr.onchange = () => { S.rotRegion = rr.value; render(); };
 
+  // data-sym を持つ要素はすべてクリックで個別詳細へ。
+  // table() が生成した行は table() 側で既に onclick を張っているので上書きしない。
+  // (以前は「TR は table() 側で処理済み」として全 TR を除外していたが、
+  //  マクロ表のように手書きした行にはハンドラが付かず、cursor:pointer なのに
+  //  タップしても無反応という状態になっていた)
   document.querySelectorAll("[data-sym]").forEach((el) => {
-    if (el.tagName === "TR") return; // table() 側で処理済み
+    if (el.onclick) return;
     el.onclick = () => openSymbol(el.dataset.sym);
   });
 
