@@ -1,16 +1,16 @@
 {
   "name": "qaiz",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "QAIZ — Quantum Advantage Instrumentation Zone: a quantum OS on Cloudflare edge that solves NP-hard basket selection and amplitude-estimation tail risk, and measures whether quantum actually wins",
+  "type": "module",
+  "description": "QAIZ — Quantitative Analyst Intelligence Zone: 地域×セクターの株式をバリュエーション・クオリティ・成長・テクニカル・リスク・アナリストコンセンサスで横断分析する Cloudflare Workers 製ダッシュボード",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "types": "wrangler types",
     "tail": "wrangler tail",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "node --test test/*.test.ts",
-    "bench": "node --no-warnings bench/advantage.ts"
+    "test": "node --test test/*.test.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260730.1",

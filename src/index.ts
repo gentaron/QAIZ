@@ -1,260 +1,428 @@
-import { VERSION } from "./config.ts";
-import { runPipeline } from "./scheduled.ts";
-import { loadLedger, loadSnapshot, SnapshotStore } from "./storage.ts";
-import { runBasketJob, runTailRiskJob } from "./os/kernel.ts";
-import { basketReturns, covarianceMatrix } from "./problems/basket.ts";
-import { qpuConfigured } from "./os/qpu.ts";
-import type { Env } from "./types.ts";
+import {
+  REGION_META,
+  SECTOR_META,
+  SECTOR_ORDER,
+  UNIVERSE,
+  VERSION,
+  getInstrument,
+} from "./config/index.ts";
+import { runPipeline } from "./pipeline.ts";
+import {
+  AnalyticsStore,
+  loadMeta,
+  loadRecords,
+  loadSeries,
+} from "./storage.ts";
+import { PRESETS, SUMMARY_FIELDS, runScreener } from "./analytics/screener.ts";
+import type { Filter, Operator, ScreenerQuery } from "./analytics/screener.ts";
+import type { Env, InstrumentRecord, RegionId, SectorId } from "./types.ts";
 
-export { SnapshotStore };
+export { AnalyticsStore };
 
 /**
- * QAIZ — Quantum Advantage Instrumentation Zone
- * セクター選択と尾リスク推定を量子OS経由で解き、Cloudflareエッジから配信する Worker。
+ * QAIZ — Quantitative Analyst Intelligence Zone
+ *
+ * 地域 × セクターの株式を、バリュエーション (PER/PBR/EV-EBITDA)、
+ * クオリティ (ROE/利益率/財務)、成長、テクニカル、リスク、アナリスト
+ * コンセンサスの全レイヤーで横断的に見るためのエッジ API + ダッシュボード。
  *
  * ルーティング:
- *   GET  /api/snapshot        … 最新スナップショット全体
- *   GET  /api/sectors         … セクターヒートランキング
- *   GET  /api/indices         … 世界指数クオート
- *   GET  /api/news            … 収集済みニュース
- *   GET  /api/basket          … 量子OSが選んだバスケットと尾リスク
- *   GET  /api/quantum/ledger  … 優位性台帳 (バックエンド横並びの実測履歴)
- *   GET  /api/quantum/status  … OS 構成と実機QPUの接続状態
- *   POST /api/quantum/solve   … 任意の問題をその場で解く (全バックエンド横並び)
- *   POST /api/refresh         … パイプライン手動実行
- *   GET  /api/health          … ヘルスチェック
- *   GET  /*                   … 静的ダッシュボード (public/)
- *
- * 初回アクセス時 (スナップショット未生成) はバックグラウンドで
- * パイプラインを自動起動し、ダッシュボード側がポーリングして表示する。
+ *   GET  /api/health                ヘルスチェック
+ *   GET  /api/overview              ダッシュボード初期表示に必要な一式
+ *   GET  /api/universe              ユニバース定義 (地域/セクター/銘柄)
+ *   GET  /api/sectors?region=US     地域×セクター集計
+ *   GET  /api/screener?...          スクリーニング (GET 簡易版)
+ *   POST /api/screener              スクリーニング (JSON クエリ全機能)
+ *   GET  /api/presets               プリセット条件一覧
+ *   GET  /api/symbol/{symbol}       個別銘柄の全分析
+ *   GET  /api/compare?symbols=a,b   複数銘柄の横並び
+ *   GET  /api/history/{symbol}      日次バー (チャート描画用)
+ *   GET  /api/rotation?region=US    セクターローテーション座標
+ *   GET  /api/breadth               市場の幅
+ *   GET  /api/regime                相場レジーム判定
+ *   GET  /api/correlation           相関行列・主成分・クラスタ
+ *   GET  /api/factors               ファクターランキング
+ *   GET  /api/news                  収集済みニュース
+ *   POST /api/refresh?shard=n&full=1  パイプライン手動実行
+ *   GET  /*                         静的ダッシュボード
  */
 
-/**
- * その場で問題を解く。ダッシュボードの「もっと大きい n で試す」ボタンと、
- * ベンチマークスクリプトの両方がここを叩く。
- *
- * 入力の μ / Σ を呼び出し側から渡せるようにしてあるのは、
- * **優位性の主張を第三者が再現できるようにするため**。
- * 市場データに依存した数字だけを見せて「量子が効いた」と言うのは検証不能。
- */
-async function solveOnDemand(request: Request, env: Env): Promise<Response> {
-  let body: {
-    n?: number;
-    cardinality?: number;
-    riskAversion?: number;
-    budgetMs?: number;
-    seed?: number;
-    epsilon?: number;
-    mu?: number[];
-    returns?: number[][];
-  };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid JSON body" }, 400);
-  }
-
-  const budgetMs = clampNumber(body.budgetMs ?? 200, 1, 5000);
-  const seed = body.seed ?? 20260805;
-
-  if (!body.returns || body.returns.length === 0) {
-    return json(
-      { error: "returns[][] (資産×時系列) が必要。mu を省略すると平均リターンを使う" },
-      400
-    );
-  }
-  const returns = body.returns;
-  const n = returns.length;
-  if (n < 2 || n > 20) return json({ error: "n は 2..20" }, 400);
-  const cardinality = clampNumber(body.cardinality ?? Math.ceil(n / 3), 1, n - 1);
-
-  const mu =
-    body.mu && body.mu.length === n
-      ? Float64Array.from(body.mu)
-      : Float64Array.from(
-          returns.map((r) => r.reduce((a, b) => a + b, 0) / Math.max(1, r.length))
-        );
-  const sigma = covarianceMatrix(returns);
-  const ids = Array.from({ length: n }, (_, i) => `A${i}`);
-
-  const basket = runBasketJob(
-    {
-      ids,
-      mu,
-      sigma,
-      cardinality,
-      riskAversion: body.riskAversion ?? 1,
-    },
-    { budgetMs: budgetMs * 0.7, seed }
-  );
-
-  const risk = runTailRiskJob(
-    {
-      returns: basketReturns(returns, basket.solution.mask),
-      epsilon: clampNumber(body.epsilon ?? 0.01, 0.001, 0.2),
-      bins: 32,
-    },
-    { budgetMs: budgetMs * 0.3, seed }
-  );
-
-  return json({
-    basket: {
-      selected: basket.solution.selected,
-      feasible: basket.solution.feasible,
-      objective: basket.solution.objective,
-      matchesExact: basket.exact
-        ? basket.exact.mask === basket.solution.mask
-        : null,
-    },
-    exactEnumerationWallAt: basket.exactWallAt,
-    ledger: [basket.entry, risk.entry],
-    env: {
-      qpuConfigured: qpuConfigured({
-        endpoint: env.QPU_ENDPOINT,
-        token: env.QPU_TOKEN,
-        backend: env.QPU_BACKEND,
-      }),
-    },
-  });
-}
-
-function clampNumber(x: number, lo: number, hi: number): number {
-  return Number.isFinite(x) ? Math.max(lo, Math.min(hi, x)) : lo;
-}
-
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, maxAge = 120): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": status === 200 ? "public, max-age=300" : "no-store",
+      "Cache-Control": status === 200 ? `public, max-age=${maxAge}` : "no-store",
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     },
   });
 }
 
+function csvList(v: string | null): string[] | undefined {
+  if (!v) return undefined;
+  const items = v.split(",").map((s) => s.trim()).filter(Boolean);
+  return items.length > 0 ? items : undefined;
+}
+
+/**
+ * GET のクエリ文字列からスクリーナークエリを組む簡易文法。
+ *   ?f=fundamentals.forwardPE:lte:15&f=risk.beta:lte:1.2&sort=factors.composite:desc
+ * URL だけで条件を共有できるようにするため、POST と同じ表現力を
+ * なるべく持たせてある。
+ */
+function parseGetQuery(url: URL): ScreenerQuery {
+  const filters: Filter[] = url.searchParams.getAll("f").map((raw) => {
+    const [field, op, value, value2] = raw.split(":");
+    const numeric = value !== undefined && value !== "" && Number.isFinite(Number(value));
+    return {
+      field,
+      op: (op ?? "gte") as Operator,
+      value: numeric ? Number(value) : value === "true" ? true : value === "false" ? false : value,
+      value2: value2 === undefined ? undefined : Number(value2),
+    };
+  });
+  const sort = url.searchParams.getAll("sort").map((raw) => {
+    const [field, dir] = raw.split(":");
+    return { field, dir: (dir === "asc" ? "asc" : "desc") as "asc" | "desc" };
+  });
+  return {
+    regions: csvList(url.searchParams.get("region")) as RegionId[] | undefined,
+    sectors: csvList(url.searchParams.get("sector")) as SectorId[] | undefined,
+    roles: csvList(url.searchParams.get("role")),
+    symbols: csvList(url.searchParams.get("symbols")),
+    filters: filters.length > 0 ? filters : undefined,
+    sort: sort.length > 0 ? sort : undefined,
+    fields: csvList(url.searchParams.get("fields")),
+    limit: Number(url.searchParams.get("limit")) || undefined,
+    offset: Number(url.searchParams.get("offset")) || undefined,
+  };
+}
+
+function universePayload() {
+  const regions = Object.entries(REGION_META).map(([id, m]) => ({
+    id,
+    ...m,
+    count: UNIVERSE.filter((i) => i.region === id).length,
+  }));
+  const sectors = SECTOR_ORDER.map((id) => ({
+    id,
+    ...SECTOR_META[id],
+    count: UNIVERSE.filter((i) => i.sector === id).length,
+  }));
+  return {
+    version: VERSION,
+    size: UNIVERSE.length,
+    regions: regions.filter((r) => r.count > 0),
+    sectors: sectors.filter((s) => s.count > 0),
+    instruments: UNIVERSE.map((i) => ({
+      symbol: i.symbol,
+      name: i.name,
+      nameJa: i.nameJa,
+      region: i.region,
+      sector: i.sector,
+      role: i.role,
+      assetClass: i.assetClass,
+      currency: i.currency,
+    })),
+  };
+}
+
+async function handleApi(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  url: URL
+): Promise<Response> {
+  const path = url.pathname;
+
+  if (path === "/api/health") {
+    return json({ ok: true, service: "qaiz", version: VERSION, ts: Date.now() }, 200, 0);
+  }
+  if (path === "/api/universe") {
+    return json(universePayload(), 200, 3600);
+  }
+  if (path === "/api/presets") {
+    return json({ presets: PRESETS, fields: SUMMARY_FIELDS }, 200, 3600);
+  }
+
+  if (path === "/api/refresh" && request.method === "POST") {
+    const shardParam = url.searchParams.get("shard");
+    const snapshot = await runPipeline(env, {
+      shard: shardParam !== null ? Number(shardParam) : undefined,
+      recomputeAll: url.searchParams.get("full") === "1",
+    });
+    return json(
+      {
+        ok: true,
+        generatedAt: snapshot.generatedAt,
+        covered: snapshot.meta.covered,
+        universeSize: snapshot.meta.universeSize,
+        shard: snapshot.meta.shard,
+        shards: snapshot.meta.shards,
+        fetches: snapshot.meta.fetches,
+        elapsedMs: snapshot.meta.elapsedMs,
+        errors: snapshot.meta.errors,
+      },
+      200,
+      0
+    );
+  }
+
+  const meta = await loadMeta(env);
+  if (!meta) {
+    // 初回アクセス: バックグラウンドで生成を始め、クライアントにはポーリングを促す
+    ctx.waitUntil(runPipeline(env).catch(() => {}));
+    return json(
+      { status: "generating", message: "初回データを収集中。数十秒後に再読み込みしてください。" },
+      503
+    );
+  }
+
+  /* ---- 記録を要するエンドポイント ---- */
+  const needsRecords =
+    path === "/api/overview" ||
+    path === "/api/screener" ||
+    path === "/api/factors" ||
+    path === "/api/compare" ||
+    path.startsWith("/api/symbol/");
+
+  const records = needsRecords ? await loadRecords(env) : {};
+  const list = Object.values(records);
+
+  switch (true) {
+    case path === "/api/overview": {
+      // ダッシュボードの初期描画に必要なものだけを 1 往復で返す。
+      // 全レコードを載せると数百 KB になるので、上位だけ要約する。
+      const top = runScreener(list, {
+        roles: ["constituent", "sector-proxy"],
+        sort: [{ field: "factors.composite", dir: "desc" }],
+        limit: 25,
+      });
+      const bottom = runScreener(list, {
+        roles: ["constituent", "sector-proxy"],
+        sort: [{ field: "factors.composite", dir: "asc" }],
+        limit: 10,
+      });
+      const macro = runScreener(list, {
+        roles: ["macro", "benchmark"],
+        sort: [{ field: "price.r1d", dir: "desc" }],
+        limit: 40,
+        fields: [
+          "instrument.symbol", "instrument.nameJa", "instrument.region",
+          "instrument.assetClass", "price.last", "price.currency",
+          "price.r1d", "price.r1w", "price.r1m", "price.r3m", "price.ytd",
+          "price.rangePosition52w", "technicals.rsi14",
+        ],
+      });
+      return json({
+        generatedAt: meta.generatedAt,
+        version: meta.version,
+        regime: meta.regime,
+        breadth: meta.breadth,
+        sectors: meta.sectors,
+        rotation: meta.rotation,
+        correlation: meta.correlation,
+        news: meta.news.slice(0, 24),
+        leaders: top,
+        laggards: bottom,
+        macro,
+        meta: meta.meta,
+      });
+    }
+
+    case path === "/api/sectors": {
+      const region = url.searchParams.get("region");
+      const sectors = region
+        ? meta.sectors.filter((s) => s.region === region)
+        : meta.sectors;
+      return json({ generatedAt: meta.generatedAt, sectors });
+    }
+
+    case path === "/api/rotation": {
+      const region = url.searchParams.get("region");
+      const rotation = region
+        ? meta.rotation.filter((r) => r.region === region)
+        : meta.rotation;
+      return json({
+        generatedAt: meta.generatedAt,
+        method:
+          "Zスコア正規化版 RS-Ratio / RS-Momentum (窓126日, モメンタム遅行10日)。" +
+          "本家 JdK の平滑化とは異なるため絶対値は一致しない。",
+        rotation,
+      });
+    }
+
+    case path === "/api/breadth":
+      return json({ generatedAt: meta.generatedAt, breadth: meta.breadth });
+
+    case path === "/api/regime":
+      return json({ generatedAt: meta.generatedAt, regime: meta.regime });
+
+    case path === "/api/correlation":
+      return json({ generatedAt: meta.generatedAt, correlation: meta.correlation });
+
+    case path === "/api/news":
+      return json({ generatedAt: meta.generatedAt, news: meta.news });
+
+    case path === "/api/meta":
+      return json({ generatedAt: meta.generatedAt, version: meta.version, meta: meta.meta });
+
+    case path === "/api/screener": {
+      let query: ScreenerQuery;
+      if (request.method === "POST") {
+        try {
+          query = (await request.json()) as ScreenerQuery;
+        } catch {
+          return json({ error: "invalid JSON body" }, 400);
+        }
+      } else {
+        const presetId = url.searchParams.get("preset");
+        if (presetId) {
+          const preset = PRESETS.find((p) => p.id === presetId);
+          if (!preset) return json({ error: `unknown preset: ${presetId}` }, 404);
+          const overrides = parseGetQuery(url);
+          query = {
+            ...preset.query,
+            regions: overrides.regions ?? preset.query.regions,
+            sectors: overrides.sectors ?? preset.query.sectors,
+            limit: overrides.limit ?? preset.query.limit,
+          };
+        } else {
+          query = parseGetQuery(url);
+        }
+      }
+      const result = runScreener(list, query);
+      return json({ generatedAt: meta.generatedAt, ...result });
+    }
+
+    case path === "/api/factors": {
+      const region = url.searchParams.get("region");
+      const sector = url.searchParams.get("sector");
+      const result = runScreener(list, {
+        roles: ["constituent", "sector-proxy"],
+        regions: region ? [region as RegionId] : undefined,
+        sectors: sector ? [sector as SectorId] : undefined,
+        sort: [{ field: "factors.composite", dir: "desc" }],
+        limit: Number(url.searchParams.get("limit")) || 60,
+        fields: [
+          "instrument.symbol", "instrument.nameJa", "instrument.region", "instrument.sector",
+          "factors.composite", "factors.value", "factors.quality", "factors.momentum",
+          "factors.growth", "factors.lowVol", "factors.rank", "factors.peerCount",
+          "valuation.score", "valuation.coverage", "quality.score", "growth.score",
+          "technicals.compositeScore", "price.r3m", "price.r12m1m", "risk.vol252",
+        ],
+      });
+      return json({
+        generatedAt: meta.generatedAt,
+        note:
+          "value/quality/growth はセクター内の相対評価、momentum/lowVol はユニバース全体の相対評価。" +
+          "composite はそれらの Z スコアを加重平均したもの。",
+        ...result,
+      });
+    }
+
+    case path === "/api/compare": {
+      const symbols = csvList(url.searchParams.get("symbols")) ?? [];
+      if (symbols.length === 0) return json({ error: "symbols= が必要" }, 400);
+      const found = symbols
+        .map((s) => records[s])
+        .filter((r): r is InstrumentRecord => !!r);
+      const missing = symbols.filter((s) => !records[s]);
+      return json({ generatedAt: meta.generatedAt, records: found, missing });
+    }
+
+    case path.startsWith("/api/symbol/"): {
+      const symbol = decodeURIComponent(path.slice("/api/symbol/".length));
+      const rec = records[symbol];
+      if (!rec) {
+        const known = getInstrument(symbol);
+        return json(
+          {
+            error: known
+              ? `${symbol} はユニバースにあるがまだ収集されていない (シャード更新待ち)`
+              : `${symbol} はユニバースに存在しない`,
+            universeMember: !!known,
+          },
+          404
+        );
+      }
+      // ピア (同一セクター) の相対位置を一緒に返す。単体の PER だけ見せても
+      // 判断できないので、比較対象を必ず添える。
+      const peers = list
+        .filter(
+          (r) =>
+            r.instrument.sector === rec.instrument.sector &&
+            r.instrument.symbol !== symbol &&
+            r.instrument.role === rec.instrument.role
+        )
+        .slice(0, 12)
+        .map((r) => ({
+          symbol: r.instrument.symbol,
+          nameJa: r.instrument.nameJa,
+          region: r.instrument.region,
+          forwardPE: r.fundamentals?.forwardPE ?? null,
+          priceToBook: r.fundamentals?.priceToBook ?? null,
+          returnOnEquity: r.fundamentals?.returnOnEquity ?? null,
+          r3m: r.price.r3m,
+          composite: r.factors?.composite ?? null,
+        }));
+      return json({ generatedAt: meta.generatedAt, record: rec, peers });
+    }
+
+    case path.startsWith("/api/history/"): {
+      const symbol = decodeURIComponent(path.slice("/api/history/".length));
+      const series = await loadSeries(env, [symbol]);
+      const s = series[symbol];
+      if (!s) return json({ error: `${symbol} の価格系列が無い` }, 404);
+      const points = Number(url.searchParams.get("points")) || 260;
+      return json({
+        symbol,
+        name: s.name,
+        currency: s.currency,
+        source: s.source,
+        fetchedAt: s.fetchedAt,
+        bars: s.bars.slice(-Math.min(520, Math.max(30, points))),
+      });
+    }
+
+    default:
+      return json({ error: "not found", path }, 404);
+  }
+}
+
 export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const path = url.pathname;
 
-    if (path.startsWith("/api/")) {
-      if (path === "/api/health") {
-        return json({ ok: true, service: "qaiz", ts: Date.now() });
-      }
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        },
+      });
+    }
 
-      if (path === "/api/refresh" && request.method === "POST") {
-        const snapshot = await runPipeline(env);
-        return json({
-          ok: true,
-          generatedAt: snapshot.generatedAt,
-          sectors: snapshot.sectors.length,
-          indices: snapshot.indices.length,
-          quantum: snapshot.quantum !== null,
-        });
-      }
-
-      if (path === "/api/quantum/status") {
-        return json({
-          os: "qaiz-quantum-os",
-          version: VERSION,
-          budgetMs: Number(env.QUANTUM_BUDGET_MS ?? 120),
-          problems: [
-            {
-              id: "basket-qubo",
-              name: "基数制約付きセクターバスケット選択",
-              complexity: "NP困難 (二次ナップサック / k-densest subgraph を含む)",
-              quantumRoute: "QAOA+ (XYミキサー + Dicke状態)",
-              advantageStatus:
-                "未確立 — 現在の規模では厳密解が一瞬で出るため優位性は無い",
-            },
-            {
-              id: "tail-amplitude",
-              name: "バスケットのテールリスク推定",
-              complexity: "確率推定 (古典は Θ(1/ε²) サンプル)",
-              quantumRoute: "Iterative Quantum Amplitude Estimation",
-              advantageStatus:
-                "証明済み — クエリ計算量 O(1/ε) の二次高速化 (BHMT 2002)",
-            },
-          ],
-          backends: [
-            { id: "exact-enumeration", kind: "classical" },
-            { id: "simulated-annealing", kind: "classical" },
-            { id: "monte-carlo", kind: "classical" },
-            { id: "qaoa-xy-statevector", kind: "quantum-sim" },
-            { id: "iqae-statevector", kind: "quantum-sim" },
-            {
-              id: "qpu",
-              kind: "quantum-hardware",
-              configured: qpuConfigured({
-                endpoint: env.QPU_ENDPOINT,
-                token: env.QPU_TOKEN,
-                backend: env.QPU_BACKEND,
-              }),
-            },
-          ],
-        });
-      }
-
-      if (path === "/api/quantum/ledger") {
-        const ledger = await loadLedger(env);
-        return json(ledger ?? { version: 1, entries: [] });
-      }
-
-      if (path === "/api/quantum/solve" && request.method === "POST") {
-        return solveOnDemand(request, env);
-      }
-
-      const snapshot = await loadSnapshot(env);
-      if (!snapshot) {
-        // 初回: バックグラウンドで生成を開始し、クライアントにはポーリングを促す
-        ctx.waitUntil(runPipeline(env).catch(() => {}));
-        return json({ status: "generating" }, 503);
-      }
-
-      switch (path) {
-        case "/api/snapshot":
-          return json(snapshot);
-        case "/api/sectors":
-          return json({
-            generatedAt: snapshot.generatedAt,
-            sectors: snapshot.sectors,
-          });
-        case "/api/indices":
-          return json({
-            generatedAt: snapshot.generatedAt,
-            indices: snapshot.indices,
-          });
-        case "/api/news":
-          return json({
-            generatedAt: snapshot.generatedAt,
-            news: snapshot.news,
-          });
-        case "/api/basket":
-          return snapshot.quantum
-            ? json({
-                generatedAt: snapshot.generatedAt,
-                ...snapshot.quantum,
-              })
-            : json({ error: "quantum decision not available" }, 503);
-        default:
-          return json({ error: "not found" }, 404);
+    if (url.pathname.startsWith("/api/")) {
+      try {
+        return await handleApi(request, env, ctx, url);
+      } catch (e) {
+        // 例外の中身をレスポンスに載せない。スタックトレースや内部パスが
+        // そのまま外に出るうえ、この API は認証なしで誰でも叩ける。
+        // 調査に必要な情報はログ側に出す (`wrangler tail` で読める)。
+        console.error("api error", url.pathname, e);
+        return json({ error: "internal error", path: url.pathname }, 500);
       }
     }
 
-    // 静的ダッシュボード
     return env.ASSETS.fetch(request);
   },
 
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<void> {
+  async scheduled(_c: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runPipeline(env));
   },
 } satisfies ExportedHandler<Env>;

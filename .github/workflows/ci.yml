@@ -1,12 +1,15 @@
 name: CI
 
-# 型検査と数理エンジンのテスト。ネットワークにも Cloudflare にも触らないので、
+# 型検査と分析エンジンのテスト。ネットワークにも Cloudflare にも触らないので、
 # fork からの PR でも Secret なしで完走する。
 on:
   push:
     branches: [main]
+  # ベースを絞らない。作業ブランチ同士の PR (機能ブランチに積み上げる運用) でも
+  # 型検査とテストを回すため。branches: [main] を付けていると、そういう PR は
+  # GitHub 側で除外されてチェックが 1 つも走らず、「赤くないから通っている」と
+  # 誤解される状態になる。
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -39,9 +42,3 @@ jobs:
 
       - name: Test
         run: npm test
-
-      # 優位性ベンチマークも CI で回す。README に載せている数字が
-      # コード変更で静かにずれるのを防ぐため (実行時間はマシン依存だが、
-      # クエリ数と近似比は seed 固定で再現する)。
-      - name: Advantage benchmark
-        run: npm run bench
