@@ -43,6 +43,7 @@ export { AnalyticsStore };
  *   GET  /api/breadth               市場の幅
  *   GET  /api/regime                相場レジーム判定
  *   GET  /api/correlation           相関行列・主成分・クラスタ
+ *   GET  /api/benchmark             Fama-French による対照検証 (α・ファクター傾斜)
  *   GET  /api/factors               ファクターランキング
  *   GET  /api/news                  収集済みニュース
  *   POST /api/refresh?shard=n&full=1  パイプライン手動実行
@@ -240,6 +241,7 @@ async function handleApi(
         rotation: meta.rotation,
         correlation: meta.correlation,
         ideas: meta.ideas,
+        benchmarking: meta.benchmarking,
         news: meta.news.slice(0, 24),
         leaders: top,
         laggards: bottom,
@@ -292,6 +294,16 @@ async function handleApi(
       if (region) ideas = ideas.filter((i) => i.region === region);
       if (playbook) ideas = ideas.filter((i) => i.playbook === playbook);
       return json({ ...meta.ideas, ideas });
+    }
+
+    case path === "/api/benchmark": {
+      if (!meta.benchmarking) {
+        return json(
+          { error: "対照検証はまだ実行されていない (Fama-French データの取得待ち)" },
+          503
+        );
+      }
+      return json({ generatedAt: meta.generatedAt, ...meta.benchmarking });
     }
 
     case path === "/api/news":

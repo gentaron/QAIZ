@@ -115,6 +115,41 @@ AI データセンター
 画面上の用語はタップすると解説が開きます。アイデアが参照する用語キーが実在するかは
 テストで検証しているので、タップしても何も出ないという静かな不具合は起きません。
 
+### 0-4. 対照検証 (Fama-French)
+
+**自分の主張を否定できる材料を、主張と同じ画面に置いています。**
+
+QAIZ のスコアに新しい情報があるかを、QAIZ 自身の指標ではなく外部の確立した基準で測ります。
+
+```
+r − rf = α + β₁·Mkt + β₂·SMB + β₃·HML + β₄·RMW + β₅·CMA + β₆·Mom + ε
+```
+
+市場・規模・バリュー・収益性・投資・モメンタムという既知の 6 ファクターで説明できてしまう
+値動きは、こちらが何かを発見したわけではありません。α が有意に正のときだけ、
+既知の要因では説明できない部分があると言えます。
+
+データは **Ken French Data Library** (ダートマス大・公式・無料・キー不要)。
+ZIP 配布なので `src/datasources/zip.ts` に最小の ZIP リーダーを書いています
+(Workers の `DecompressionStream` は gzip/deflate/deflate-raw のみで、ZIP コンテナは展開できない。
+コンテナのヘッダだけ自前で読んで、中身は `deflate-raw` に渡す)。
+
+出すのは 2 つです。
+
+- **銘柄単位の帰属** — その銘柄の値動きが 6 ファクターでどこまで説明できるか。個別画面に表示
+- **上位群 / 下位群の傾斜** — QAIZ 総合スコアの上位20銘柄と下位20銘柄が、それぞれどのファクターに寄っているか
+
+#### この数字を成績として読んではいけない理由
+
+現時点のスコアで銘柄を選んで過去リターンを測れば、**選択自体が未来を見ている**ので必ず良い数字が出ます。
+それは検証ではありません。ここで読めるのは「QAIZ の上位群がどのファクターに傾いているか」という
+**性質の記述**であって、成績ではありません。この但し書きは API レスポンスと画面の両方に必ず付きます。
+
+予測力の本当の検証には「その日の時点で何位だったか」の記録が要ります。今は答えを出せませんが、
+記録を始めておかないと永遠に出せないので、**日次の point-in-time スコアを積み始めています**
+(`storage.ts` の `recordScores`)。60 日ほど溜まれば、その日の順位で選んだ銘柄がその後どうなったかを
+アウトオブサンプルで検証できます。現在の蓄積日数は画面に表示されます。
+
 ### 1. 地域 × セクター ヒートマップ
 米国・日本・欧州・アジアのセクターを、リターン／バリュエーション／ROE／テクニカル／
 200日線超え比率など **11 の切り口で切り替えて** 色分け表示。
@@ -330,6 +365,7 @@ UI にそのまま出しています。予算切れでスキップされた銘�
 | `GET /api/breadth` / `GET /api/regime` / `GET /api/correlation` | 市場の幅 / レジーム / 相関 |
 | `GET /api/factors?region=US&sector=semis` | ファクターランキング |
 | `GET /api/ideas?region=JP&playbook=value-recovery` | 銘柄アイデア (レジーム判定・有効な戦術・候補・免責つき) |
+| `GET /api/benchmark` | Fama-French による対照検証 (α・t値・ファクター傾斜・但し書き) |
 | `GET /api/related/{symbol}` | 関連銘柄 (種類別) + 所属テーマ |
 | `GET /api/glossary` / `GET /api/glossary?key=priceToBook` | 用語解説 (全件 / 1件) |
 | `GET /api/themes` | テーマ・供給網の定義 |
@@ -365,6 +401,7 @@ curl -X POST https://<your-worker>/api/screener \
 | Yahoo Finance `/v10/finance/quoteSummary` | PER/PBR/ROE/アナリスト予想 | cookie + crumb が必要。セッションは 6 時間キャッシュ。失敗時は `null` のまま続行 |
 | Stooq CSV | 価格のフォールバック | 配当調整なし。使った場合は警告を出す |
 | RSS 8 本 | ニュース / センチメント材料 | Yahoo Finance・CNBC・MarketWatch・NHK 経済・ロイター・Cointelegraph |
+| Ken French Data Library | Fama-French 6 ファクターの日次リターン | 公式・無料・キー不要。ZIP 配布なので自前の ZIP リーダーで展開。週1回のみ取得 |
 | Cloudflare Workers AI | セクターのニュースセンチメント | 無料枠 10k Neurons/日。枠切れ時は内蔵レキシコンに自動フォールバック |
 
 ---
@@ -426,6 +463,8 @@ src/
     yahoo.ts            OHLCV (chart) と ファンダ (quoteSummary + crumb 認証)
     stooq.ts            価格のフォールバック
     rss.ts              ニュース
+    zip.ts              最小の ZIP リーダー (Workers に ZIP 展開が無いため)
+    kenfrench.ts        Fama-French ファクター (対照群)
 
   analytics/
     stats.ts            統計プリミティブ (Zスコア・分位点・相関・回帰)
@@ -437,6 +476,8 @@ src/
     signals.ts          シグナル生成
     related.ts          関連銘柄 (6 種の関係を強度・根拠つきで算出)
     ideas.ts            銘柄アイデア (レジーム条件付きの戦術選択と候補生成)
+    regression.ts       多変量OLS (逆行列・t値・R²)
+    attribution.ts      Fama-French 帰属 (銘柄単位 / 群の傾斜)
     screener.ts         フィルタ・ソート DSL とプリセット
     aggregate.ts        地域 × セクター集計
     rotation.ts         RRG 座標
@@ -651,7 +692,7 @@ npm run dev:mock     # http://127.0.0.1:8787
 npm run dev        # ローカル (wrangler dev)
 npm run dev:mock   # モック API でダッシュボードだけ確認 (ネットワーク不要)
 npm run typecheck  # 本体 + テストの型検査
-npm test           # 124 テスト
+npm test           # 144 テスト
 ```
 
 テストは Node のネイティブ型ストリッピングで `.ts` を直接実行します (Node 22.18+)。

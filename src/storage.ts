@@ -1,5 +1,6 @@
 import type { Bar, Env, InstrumentRecord, Series, Snapshot } from "./types.ts";
 import type { YahooSession } from "./datasources/yahoo.ts";
+import type { FactorSeries } from "./datasources/kenfrench.ts";
 
 /**
  * 永続化層 — Durable Object (SQLite バックエンド)。
@@ -18,6 +19,8 @@ import type { YahooSession } from "./datasources/yahoo.ts";
 const META_KEY = "meta:v1";
 const CURSOR_KEY = "cursor:v1";
 const SESSION_KEY = "session:yahoo";
+const FACTORS_KEY = "factors:french:v1";
+const SCORE_HISTORY_KEY = "scorehist:v1";
 
 type MetaSnapshot = Omit<Snapshot, "records">;
 
@@ -208,6 +211,79 @@ export async function nextShard(env: Env, shards: number): Promise<number> {
   const next = (cur + 1) % Math.max(1, shards);
   await kvPut(env, CURSOR_KEY, next);
   return next;
+}
+
+/* ---- Fama-French ファクター ---- */
+
+/**
+ * ファクター系列は週 1 回で十分。日次データだが Ken French の更新自体が
+ * 数日遅れるので、頻繁に取りに行っても新しくならない。
+ */
+const FACTOR_TTL_MS = 7 * 24 * 3600 * 1000;
+
+export async function loadFactors(env: Env): Promise<FactorSeries | null> {
+  return kvGet<FactorSeries>(env, FACTORS_KEY);
+}
+
+export async function saveFactors(env: Env, f: FactorSeries): Promise<void> {
+  await kvPut(env, FACTORS_KEY, f);
+}
+
+/** 取り直しが必要か (未取得、または 1 週間より古い) */
+export function factorsStale(f: FactorSeries | null): boolean {
+  if (!f || !f.days?.length) return true;
+  const age = Date.now() - Date.parse(f.fetchedAt);
+  return !Number.isFinite(age) || age > FACTOR_TTL_MS;
+}
+
+/* ---- スコア履歴 ---- */
+
+/**
+ * point-in-time のスコア履歴。
+ *
+ * 「QAIZ のスコアが将来のリターンを予測できるか」は、今のスナップショット
+ * だけでは絶対に検証できない。今のスコアで銘柄を選んで過去リターンを測れば、
+ * 選択自体が未来を見ているので必ず良い数字が出る。
+ *
+ * 正しく検証するには「その日の時点で何位だったか」の記録が要る。
+ * 今は答えを出せないが、記録を始めておかないと永遠に出せないので、
+ * 1 日 1 スナップショットずつ積む。
+ */
+export interface ScoreSnapshot {
+  /** YYYY-MM-DD */
+  date: string;
+  /** シンボル → 総合スコア (0-100) */
+  scores: Record<string, number>;
+}
+
+/** 保持日数。DO の 1 値 128KiB 上限に収まる範囲 */
+const SCORE_HISTORY_DAYS = 400;
+
+export async function loadScoreHistory(env: Env): Promise<ScoreSnapshot[]> {
+  return (await kvGet<ScoreSnapshot[]>(env, SCORE_HISTORY_KEY)) ?? [];
+}
+
+/**
+ * その日のスコアを 1 件だけ記録する。同じ日に複数回呼ばれても上書きし、
+ * 1 日 1 レコードを保つ (cron は 15 分ごとに回るため)。
+ */
+export async function recordScores(
+  env: Env,
+  scores: Record<string, number>
+): Promise<number> {
+  const date = new Date().toISOString().slice(0, 10);
+  const hist = await loadScoreHistory(env);
+  const rounded: Record<string, number> = {};
+  for (const [k, v] of Object.entries(scores)) rounded[k] = Math.round(v * 10) / 10;
+
+  const idx = hist.findIndex((h) => h.date === date);
+  if (idx >= 0) hist[idx] = { date, scores: rounded };
+  else hist.push({ date, scores: rounded });
+
+  hist.sort((a, b) => a.date.localeCompare(b.date));
+  const trimmed = hist.slice(-SCORE_HISTORY_DAYS);
+  await kvPut(env, SCORE_HISTORY_KEY, trimmed);
+  return trimmed.length;
 }
 
 /** crumb セッションは 6 時間キャッシュする (毎回 2 リクエスト使うのは無駄) */

@@ -364,9 +364,62 @@ overview.ideas = ideaBook;
 // record は ideaBook より前に定義されているため、ここで関連銘柄を差し込む
 record.related = ideaBook.ideas[0].related;
 
+/* Fama-French 対照検証 */
+const loading = (f, ja, plain, beta, t) => ({ factor: f, nameJa: ja, plain, beta, t, significant: Math.abs(t) >= 1.96 });
+const benchmarking = {
+  source: "Ken French Data Library (Dartmouth)",
+  fetchedAt: overview.generatedAt,
+  from: 20230801, to: 20260804,
+  notes: ["モメンタムが 3/756 日ぶん欠損 (5 ファクターの更新が先行することがある)"],
+  scoreHistoryDays: 1,
+  status: "スコア履歴は 1 日ぶん。予測力の検証 (その日の時点の順位で選んだ銘柄が、その後どうなったか) には最低 60 日ほど必要で、まだ結論は出せない。現在は傾斜の記述のみ。",
+  tilts: [
+    {
+      label: "QAIZ 総合スコア上位 20 銘柄", members: [], memberCount: 20,
+      alphaAnnual: 0.041, alphaT: 1.42, alphaSignificant: false,
+      rSquared: 0.883, observations: 248, window: 252,
+      loadings: [
+        loading("mktRf", "市場 (Mkt-RF)", "市場全体との連動。1 に近いほど指数と一緒に動く", 1.08, 34.2),
+        loading("smb", "規模 (SMB)", "プラスなら小型株寄り、マイナスなら大型株寄り", -0.31, -3.1),
+        loading("hml", "バリュー (HML)", "プラスなら割安株寄り、マイナスならグロース株寄り", -0.44, -4.6),
+        loading("rmw", "収益性 (RMW)", "プラスなら高収益企業寄り", 0.36, 3.4),
+        loading("cma", "投資 (CMA)", "プラスなら投資に保守的な企業寄り", -0.12, -1.1),
+        loading("mom", "モメンタム (Mom)", "プラスなら勢いのある銘柄寄り", 0.29, 4.9),
+      ],
+      dominantTilt: "バリュー (HML) に 逆方向へ傾斜 (β -0.44, t -4.60)",
+      caveat: "現時点のスコアで選んだ銘柄の過去リターンを見ているため、選択に未来の情報が入っている。これは『どのファクターに傾いているか』という性質の記述であって、成績ではない。予測力の検証には point-in-time のスコア履歴が必要で、そちらは蓄積を開始した段階。",
+    },
+    {
+      label: "QAIZ 総合スコア下位 20 銘柄", members: [], memberCount: 20,
+      alphaAnnual: -0.058, alphaT: -1.88, alphaSignificant: false,
+      rSquared: 0.804, observations: 248, window: 252,
+      loadings: [
+        loading("mktRf", "市場 (Mkt-RF)", "市場全体との連動。1 に近いほど指数と一緒に動く", 0.97, 28.7),
+        loading("smb", "規模 (SMB)", "プラスなら小型株寄り、マイナスなら大型株寄り", 0.18, 1.7),
+        loading("hml", "バリュー (HML)", "プラスなら割安株寄り、マイナスならグロース株寄り", 0.51, 5.2),
+        loading("rmw", "収益性 (RMW)", "プラスなら高収益企業寄り", -0.29, -2.6),
+        loading("cma", "投資 (CMA)", "プラスなら投資に保守的な企業寄り", 0.08, 0.7),
+        loading("mom", "モメンタム (Mom)", "プラスなら勢いのある銘柄寄り", -0.34, -5.4),
+      ],
+      dominantTilt: "バリュー (HML) に 順方向へ傾斜 (β 0.51, t 5.20)",
+      caveat: "現時点のスコアで選んだ銘柄の過去リターンを見ているため、選択に未来の情報が入っている。これは『どのファクターに傾いているか』という性質の記述であって、成績ではない。予測力の検証には point-in-time のスコア履歴が必要で、そちらは蓄積を開始した段階。",
+    },
+  ],
+};
+overview.benchmarking = benchmarking;
+record.attribution = {
+  alphaDaily: 0.00021, alphaAnnual: 0.053, alphaT: 1.61, alphaP: 0.107,
+  alphaSignificant: false, rSquared: 0.712, adjustedRSquared: 0.705,
+  observations: 248, window: 252,
+  factorsUsed: ["mktRf", "smb", "hml", "rmw", "cma", "mom"],
+  loadings: benchmarking.tilts[0].loadings,
+  verdict: "既知のファクターで説明が付く範囲 (α の t 値 1.61 は有意水準に届かない)。R² 71%",
+};
+
 const routes = {
   "/api/overview": overview,
   "/api/ideas": ideaBook,
+  "/api/benchmark": benchmarking,
   "/api/universe": { version: "1.0.0", size: 135, regions: REGIONS, sectors: SECTORS, instruments: [] },
   "/api/presets": {
     fields: [],

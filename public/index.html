@@ -1048,6 +1048,81 @@ function rrgSvg(pts) {
 }
 
 /* ================================================================== *
+ * タブ: 検証 (Fama-French 対照群)
+ * ================================================================== */
+function viewBenchmark() {
+  const b = S.overview.benchmarking;
+  if (!b) {
+    return `<div class="panel"><h3>対照検証</h3><div class="pad muted">
+      Fama-French のファクターデータをまだ取得できていません。
+      パイプラインが一巡すると表示されます。</div></div>`;
+  }
+  return `
+  <div class="panel">
+    <h3>これは何のための画面か</h3>
+    <div class="pad">
+      <div class="idea-plain" style="margin-bottom:10px">
+        <b>QAIZ のスコアに新しい情報があるかを、QAIZ 自身の指標ではなく外部の基準で測ります。</b>
+        市場・規模・バリュー・収益性・投資・モメンタムという既知の6ファクターで説明できてしまう
+        値動きは、こちらが何かを発見したわけではありません。自分の主張を否定できる材料を
+        先に置くための対照群です。
+      </div>
+      <div class="mono small" style="background:var(--panel2);padding:9px 11px;border-radius:6px;overflow-x:auto">
+        r − rf = α + β₁·Mkt + β₂·SMB + β₃·HML + β₄·RMW + β₅·CMA + β₆·Mom + ε
+      </div>
+      <dl class="kv" style="margin-top:10px">
+        <dt>データ出所</dt><dd class="small">${esc(b.source)}</dd>
+        <dt>期間</dt><dd>${esc(String(b.from))} 〜 ${esc(String(b.to))}</dd>
+        <dt>取得</dt><dd>${when(b.fetchedAt)}</dd>
+        <dt>スコア履歴</dt><dd>${b.scoreHistoryDays} 日</dd>
+      </dl>
+      ${b.notes && b.notes.length ? `<div style="margin-top:8px">${b.notes.map((n)=>`<div class="small warn">⚠ ${esc(n)}</div>`).join("")}</div>` : ""}
+      <div class="note" style="border:none;padding:10px 0 0"><b>現状:</b> ${esc(b.status)}</div>
+    </div>
+  </div>
+  <div style="height:12px"></div>
+  ${(b.tilts || []).map(tiltPanel).join("")}`;
+}
+
+function tiltPanel(t) {
+  const sig = (l) => l.significant ? `<span class="pos small">有意</span>` : `<span class="muted small">—</span>`;
+  return `<div class="panel" style="margin-bottom:12px">
+    <h3>${esc(t.label)} <span class="hint">${t.memberCount}銘柄・等ウェイト・直近${t.window}営業日</span></h3>
+    <div class="pad">
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px">
+        <div>
+          <div class="muted small">年率 α (既知のファクターで説明できない部分)</div>
+          <div style="font-size:24px;font-weight:700" class="mono ${t.alphaAnnual>0?"pos":"neg"}">${pct(t.alphaAnnual,1)}</div>
+          <div class="small ${t.alphaSignificant?"":"muted"}">t = ${num(t.alphaT,2)} ${t.alphaSignificant?"(有意)":"(有意水準に届かない)"}</div>
+        </div>
+        <div>
+          <div class="muted small">R² (ファクターでの説明率)</div>
+          <div style="font-size:24px;font-weight:700" class="mono">${(t.rSquared*100).toFixed(0)}%</div>
+          <div class="small muted">観測 ${t.observations} 日</div>
+        </div>
+      </div>
+
+      <div class="muted small" style="margin-bottom:5px">ファクター傾斜</div>
+      <div class="scroll-x"><table>
+        <thead><tr><th class="l">ファクター</th><th>β</th><th>t</th><th class="l">判定</th><th class="l">意味</th></tr></thead>
+        <tbody>${t.loadings.map((l)=>`<tr>
+          <td class="l">${esc(l.nameJa)}</td>
+          <td class="${l.beta>0?"pos":l.beta<0?"neg":""}">${num(l.beta,2)}</td>
+          <td>${num(l.t,2)}</td>
+          <td class="l">${sig(l)}</td>
+          <td class="l" style="white-space:normal;font-family:var(--sans)"><span class="muted small">${esc(l.plain)}</span></td>
+        </tr>`).join("")}</tbody>
+      </table></div>
+
+      <div style="margin-top:10px;padding:8px 10px;background:rgba(240,180,41,.08);border-left:3px solid var(--warn);border-radius:0 5px 5px 0">
+        <div class="small"><b>最も強い傾斜:</b> ${esc(t.dominantTilt)}</div>
+      </div>
+      <div class="note" style="border:none;padding:9px 0 0"><b>⚠ この数字の読み方:</b> ${esc(t.caveat)}</div>
+    </div>
+  </div>`;
+}
+
+/* ================================================================== *
  * タブ: リスク・相関
  * ================================================================== */
 function viewRisk() {
@@ -1183,6 +1258,8 @@ function symbolSheet(d, hist) {
         ${panelFactors(r.factors)}
         <div style="height:12px"></div>
         ${panelLevels(t, p)}
+        <div style="height:12px"></div>
+        ${panelAttribution(r.attribution)}
         <div style="height:12px"></div>
         ${panelRelated(r.related)}
         <div style="height:12px"></div>
@@ -1501,6 +1578,33 @@ function panelLevels(t, p) {
   </div>`;
 }
 
+function panelAttribution(a) {
+  if (!a) {
+    return `<div class="panel"><h3>ファクター帰属</h3><div class="pad muted">
+      Fama-French による帰属はシャード更新時に算出されます (200営業日以上の履歴が必要)。</div></div>`;
+  }
+  return `<div class="panel">
+    <h3>ファクター帰属 <span class="hint">既知の6ファクターで説明できるか</span></h3>
+    <div class="pad">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+        <div><div class="muted small">年率 α</div>
+          <div style="font-size:20px;font-weight:700" class="mono ${a.alphaAnnual>0?"pos":"neg"}">${pct(a.alphaAnnual,1)}</div></div>
+        <div><div class="muted small">t 値</div>
+          <div style="font-size:20px;font-weight:700" class="mono">${num(a.alphaT,2)}</div></div>
+        <div><div class="muted small">R²</div>
+          <div style="font-size:20px;font-weight:700" class="mono">${(a.rSquared*100).toFixed(0)}%</div></div>
+      </div>
+      ${a.loadings.map((l)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span class="small" style="width:112px;color:var(--muted)" title="${esc(l.plain)}">${esc(l.nameJa)}</span>
+        <div class="bar" style="flex:1"><i style="width:${Math.min(100,Math.abs(l.beta)*55)}%;background:${l.beta>=0?"#4cc9f0":"#f0b429"}"></i></div>
+        <span class="mono small" style="width:44px;text-align:right">${num(l.beta,2)}</span>
+        <span class="mono small ${l.significant?"":"muted"}" style="width:52px;text-align:right">t ${num(l.t,1)}</span>
+      </div>`).join("")}
+      <div class="note" style="border:none;padding:9px 0 0">${esc(a.verdict)}</div>
+    </div>
+  </div>`;
+}
+
 function panelRelated(rel) {
   if (!rel || !rel.length) {
     return `<div class="panel"><h3>関連銘柄</h3><div class="pad muted">
@@ -1590,6 +1694,7 @@ const TABS = [
   ["screener", "スクリーナー", viewScreener],
   ["rotation", "ローテーション", viewRotation],
   ["risk", "リスク・相関", viewRisk],
+  ["benchmark", "検証", viewBenchmark],
 ];
 
 function renderNav() {

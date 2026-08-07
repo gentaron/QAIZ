@@ -515,6 +515,73 @@ export interface Relation {
 }
 
 /* ------------------------------------------------------------------ */
+/* ファクター帰属 (Fama-French による対照検証)                          */
+/* ------------------------------------------------------------------ */
+
+export interface FactorLoading {
+  factor: string;
+  nameJa: string;
+  /** 初心者向け: この係数が何を意味するか */
+  plain: string;
+  beta: number;
+  t: number;
+  significant: boolean;
+}
+
+/** 1 銘柄の Fama-French 帰属 */
+export interface FactorAttribution {
+  alphaDaily: number;
+  /** 年率換算した α */
+  alphaAnnual: number;
+  alphaT: number;
+  alphaP: number | null;
+  /** 両側 5% で有意か */
+  alphaSignificant: boolean;
+  rSquared: number;
+  adjustedRSquared: number;
+  observations: number;
+  window: number;
+  factorsUsed: string[];
+  loadings: FactorLoading[];
+  /** 結論の一文 */
+  verdict: string;
+}
+
+/** 銘柄群のファクター傾斜 */
+export interface FactorTilt {
+  label: string;
+  members: string[];
+  memberCount: number;
+  alphaAnnual: number;
+  alphaT: number;
+  alphaSignificant: boolean;
+  rSquared: number;
+  observations: number;
+  window: number;
+  loadings: FactorLoading[];
+  /** 市場以外で最も強い傾斜 */
+  dominantTilt: string;
+  /** この数字を成績として読んではいけない理由 */
+  caveat: string;
+}
+
+/** 対照群まわりの一式 */
+export interface Benchmarking {
+  /** ファクターデータの出所と期間 */
+  source: string;
+  fetchedAt: string;
+  from: number;
+  to: number;
+  notes: string[];
+  /** QAIZ 上位群 / 下位群などの傾斜 */
+  tilts: FactorTilt[];
+  /** 記録済みのスコア履歴の日数 (真の検証に必要) */
+  scoreHistoryDays: number;
+  /** 予測力の検証が可能になるまでの説明 */
+  status: string;
+}
+
+/* ------------------------------------------------------------------ */
 /* 銘柄アイデア                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -660,6 +727,8 @@ export interface InstrumentRecord {
   signals: Signal[];
   /** 関連銘柄。種類ごとに意味が違うので kind を必ず添える */
   related: Relation[];
+  /** Fama-French 6 ファクターによる帰属 (対照検証) */
+  attribution: FactorAttribution | null;
   /** 直近 120 営業日の終値 (ダッシュボードのスパークライン用) */
   spark: number[];
   dataQuality: {
@@ -733,6 +802,8 @@ export interface Snapshot {
   correlation: CorrelationBlock | null;
   /** レジーム条件付きで生成した銘柄アイデア */
   ideas: IdeaBook | null;
+  /** Fama-French による対照検証 */
+  benchmarking: Benchmarking | null;
   news: NewsItem[];
   meta: {
     universeSize: number;

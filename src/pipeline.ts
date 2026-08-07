@@ -37,18 +37,26 @@ import { computeRelated } from "./analytics/related.ts";
 import { themesFor } from "./config/themes.ts";
 import type { RelatedInput } from "./analytics/related.ts";
 import { generateIdeas } from "./analytics/ideas.ts";
+import { attributeGroup, attributeInstrument, attributable } from "./analytics/attribution.ts";
+import { fetchFrenchFactors } from "./datasources/kenfrench.ts";
 import { computeTechnicals, sparkline } from "./analytics/technicals.ts";
 import {
+  factorsStale,
   loadAllSeries,
+  loadFactors,
   loadRecords,
+  loadScoreHistory,
   loadSession,
   nextShard,
+  recordScores,
+  saveFactors,
   saveMeta,
   saveRecord,
   saveSeries,
   saveSession,
 } from "./storage.ts";
 import type {
+  Benchmarking,
   Breadth,
   Env,
   IdeaBook,
@@ -87,6 +95,10 @@ function envInt(v: string | undefined, fallback: number): number {
  * 限定し、スタックや内部パスが混ざる経路を作らない。
  * (`String(e)` は現状 name: message になるが、それに依存せず明示的に絞る。)
  */
+function isFiniteScore(x: number | null | undefined): boolean {
+  return typeof x === "number" && Number.isFinite(x);
+}
+
 function errorLabel(e: unknown, max = 80): string {
   const raw = e instanceof Error ? `${e.name}: ${e.message}` : "unknown error";
   return raw.replace(/\s+/g, " ").slice(0, max);
@@ -153,6 +165,7 @@ export function analyzeInstrument(
     factors: null,
     signals: [],
     related: [],
+    attribution: null,
     spark: sparkline(bars, 120),
     dataQuality: {
       bars: bars.length,
@@ -448,6 +461,78 @@ export async function runPipeline(
   /* ---------- 9. レジーム ---------- */
   const regime = computeRegime(records, globalBreadth);
 
+  /* ---------- 9a. Fama-French 対照検証 ---------- */
+  // 「QAIZ のスコアに新しい情報があるか」を、QAIZ 自身の指標ではなく
+  // 外部の確立した基準で測る。自分の主張を否定できる材料を先に置く。
+  let benchmarking: Benchmarking | null = null;
+  try {
+    let factors = await loadFactors(env).catch(() => null);
+    if (factorsStale(factors) && budget.take("french-factors", 2)) {
+      const fresh = await fetchFrenchFactors();
+      if (fresh) {
+        factors = fresh;
+        await saveFactors(env, fresh).catch(() => {});
+      } else {
+        errors.push("kenfrench:取得に失敗 — 対照検証は前回のデータで継続");
+      }
+    }
+
+    if (factors && factors.days.length >= 150) {
+      // 銘柄単位の帰属は、その回に取り直した銘柄だけ (回帰は CPU を食う)
+      const targets = opts.recomputeAll
+        ? Object.values(records).filter(attributable)
+        : Object.values(records).filter(
+            (r) => attributable(r) && fetchedSeries.has(r.instrument.symbol)
+          );
+      for (const rec of targets) {
+        const bars = allSeries[rec.instrument.symbol]?.bars;
+        if (!bars) continue;
+        try {
+          rec.attribution = attributeInstrument(bars, factors.days);
+        } catch (e) {
+          errors.push(`attribution:${rec.instrument.symbol}:${errorLabel(e)}`);
+        }
+      }
+
+      // 上位群 / 下位群の傾斜。成績ではなく「どのファクターに寄っているか」
+      const ranked = Object.values(records)
+        .filter((r) => attributable(r) && isFiniteScore(r.factors?.composite))
+        .sort((a, b) => (b.factors!.composite as number) - (a.factors!.composite as number));
+
+      const tilts = [];
+      const mk = (list: typeof ranked, label: string) =>
+        attributeGroup(
+          list
+            .map((r) => ({ symbol: r.instrument.symbol, bars: allSeries[r.instrument.symbol]?.bars ?? [] }))
+            .filter((m) => m.bars.length > 0),
+          factors!.days,
+          label
+        );
+      const n = Math.max(3, Math.floor(ranked.length * 0.2));
+      const top = mk(ranked.slice(0, n), `QAIZ 総合スコア上位 ${n} 銘柄`);
+      const bottom = mk(ranked.slice(-n), `QAIZ 総合スコア下位 ${n} 銘柄`);
+      if (top) tilts.push(top);
+      if (bottom) tilts.push(bottom);
+
+      const histDays = (await loadScoreHistory(env).catch(() => [])).length;
+      benchmarking = {
+        source: factors.source,
+        fetchedAt: factors.fetchedAt,
+        from: factors.from,
+        to: factors.to,
+        notes: factors.notes,
+        tilts,
+        scoreHistoryDays: histDays,
+        status:
+          histDays < 60
+            ? `スコア履歴は ${histDays} 日ぶん。予測力の検証 (その日の時点の順位で選んだ銘柄が、その後どうなったか) には最低 60 日ほど必要で、まだ結論は出せない。現在は傾斜の記述のみ。`
+            : `スコア履歴 ${histDays} 日ぶんを蓄積済み。point-in-time の順位に基づく予測力の検証が可能な水準に達している。`,
+      };
+    }
+  } catch (e) {
+    errors.push(`benchmarking:${errorLabel(e)}`);
+  }
+
   /* ---------- 9b. 銘柄アイデア ---------- */
   // レジームが決まってからでないと「今どの戦術が有効か」が決まらないので、
   // 必ずレジーム判定の後に置く。
@@ -480,6 +565,7 @@ export async function runPipeline(
     regime,
     correlation,
     ideas: ideaBook,
+    benchmarking,
     news: news.slice(0, 60),
     meta: {
       universeSize: UNIVERSE.length,
@@ -493,6 +579,19 @@ export async function runPipeline(
       errors: [...errors, ...budget.skipped.map((s) => `budget-skip:${s}`)].slice(0, 30),
     },
   };
+
+  // point-in-time のスコアを記録する。今日のスナップショットだけでは
+  // 予測力の検証が原理的にできないので、積み始めておく。
+  const todayScores: Record<string, number> = {};
+  for (const r of Object.values(records)) {
+    const c = r.factors?.composite;
+    if (isFiniteScore(c)) todayScores[r.instrument.symbol] = c as number;
+  }
+  if (Object.keys(todayScores).length > 0) {
+    await recordScores(env, todayScores).catch((e) =>
+      errors.push(`scorehist:${errorLabel(e)}`)
+    );
+  }
 
   await Promise.all([
     saveMeta(env, meta),
