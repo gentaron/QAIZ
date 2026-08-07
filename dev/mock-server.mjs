@@ -17,6 +17,11 @@ import fs from "node:fs";
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// 用語解説とテーマは「計算結果」ではなく静的な設定なので、本体から直接読む。
+// (分析結果のフィクスチャを手書きにしているのは、壊れた実装を隠さないため。
+//  静的設定にはその懸念がないので、二重管理を避けて import する)
+import { GLOSSARY } from "../src/config/glossary.ts";
+import { THEMES } from "../src/config/themes.ts";
 
 const HTML = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "index.html");
 
@@ -32,6 +37,10 @@ const SECTORS = [
   { id: "energy", nameJa: "エネルギー", nameEn: "Energy", count: 5 },
   { id: "health", nameJa: "ヘルスケア", nameEn: "Health Care", count: 6 },
   { id: "staples", nameJa: "生活必需品", nameEn: "Consumer Staples", count: 5 },
+  { id: "banks", nameJa: "銀行", nameEn: "Banks", count: 4 },
+  { id: "software", nameJa: "ソフトウェア", nameEn: "Software", count: 4 },
+  { id: "gold", nameJa: "金・貴金属", nameEn: "Gold", count: 1 },
+  { id: "macro", nameJa: "マクロ", nameEn: "Macro", count: 12 },
 ];
 
 const spark = (n, base) =>
@@ -166,6 +175,7 @@ const bars = Array.from({ length: 260 }, (_, i) => {
   return { t: 1754000000 - (259 - i) * 86400, o: c * 0.998, h: c * 1.012, l: c * 0.988, c, v: 4e7 + 2e7 * Math.abs(Math.sin(i / 5)) };
 });
 
+const ideaBookRelatedPlaceholder = [];
 const record = {
   instrument: { symbol: "AAPL", name: "Apple", nameJa: "アップル", region: "US", sector: "tech", role: "constituent", assetClass: "equity", currency: "USD" },
   asOf: new Date().toISOString(),
@@ -235,6 +245,7 @@ const record = {
     { id: "rich-forward-pe", category: "valuation", direction: "caution", strength: 2, title: "予想PERがセクター内で割高", detail: "予想PER 29.8倍 (セクター中央値 23.1倍)。成長が続く前提が既に価格に入っている。" },
     { id: "volume-spike", category: "technical", direction: "bullish", strength: 2, title: "出来高急増", detail: "直近出来高は20日平均の1.3倍。当日リターン +1.2%。何らかの材料が出ている可能性が高い。" },
   ],
+  related: ideaBookRelatedPlaceholder,
   spark: spark(120, 200),
   dataQuality: { bars: 504, priceSource: "yahoo", fundamentalsSource: "yahoo:quoteSummary", lastBarDate: "2026-08-05", warnings: [] },
 };
@@ -244,8 +255,118 @@ const peers = [["MSFT", "マイクロソフト"], ["NVDA", "エヌビディア"]
   returnOnEquity: 0.34 - i * 0.05, r3m: 0.07 - i * 0.02, composite: 74 - i * 6,
 }));
 
+/* アイデア (レジーム条件付きの候補) */
+const ideaBook = {
+  generatedAt: overview.generatedAt,
+  regime: { trend: "bull", volatility: "normal", riskAppetite: "risk-on" },
+  activePlaybooks: [
+    { id: "momentum-quality", nameJa: "クオリティ × モメンタム", why: "上昇基調でボラも落ち着いており、順張りが機能しやすい地形" },
+    { id: "breakout", nameJa: "ブレイクアウト", why: "上昇基調。ブレイクアウトが騙しになりにくい" },
+    { id: "value-recovery", nameJa: "割安 × 底打ち確認", why: "総崩れではないため、個別の割安が見直される余地がある" },
+    { id: "contrarian-oversold", nameJa: "押し目のクオリティ株", why: "総崩れではないため、押し目が押し目として機能しやすい" },
+  ],
+  universeNote: "候補は QAIZ が追跡している 101 銘柄の中から選んでいます。市場全体をスクリーニングしたものではないため、ここに出ないより良い銘柄は当然あります。",
+  disclaimer: "これは投資助言ではありません。ルールベースで抽出した候補と、その根拠・反証材料です。データは非公式APIに由来し、正確性は保証されません。最終判断はご自身で行ってください。",
+  ideas: [
+    {
+      id: "momentum-quality:MSFT", rank: 1, symbol: "MSFT", nameJa: "マイクロソフト",
+      region: "US", sector: "tech", playbook: "momentum-quality", playbookNameJa: "クオリティ × モメンタム",
+      headline: "情報技術の高ROE銘柄。トレンドが生きたまま業績の質も伴っている",
+      plain: "「稼ぐ力が強くて、かつ株価も上向きの会社」を買う戦術。実証研究でいちばん頑健とされる組み合わせ。上昇相場で機能しやすい反面、相場が転換すると真っ先に売られる。",
+      thesis: [
+        "ROE 38.2% — 株主資本を効率よく利益に変えている (D/E 42% なので借金による嵩上げではない)",
+        "12-1モメンタム +24.1% — 直近1ヶ月を除いた1年のリターン。短期の反動を除いた実力ベースで上昇",
+        "200日線から +14.3% 上 — 中期トレンドが上向き",
+        "営業利益率 44.6% — 価格決定力があり、値下げ圧力に強い",
+        "ADX 29.1 — 方向性のあるトレンドが出ている (+DI 27.4 / -DI 12.8)",
+      ],
+      risks: [
+        "200日線 (382.11) を割ると順張りの前提が崩れる。ここが機械的な撤退ラインになる",
+        "モメンタム戦略は相場の転換点で最も大きくやられる。指数が下落基調に変わったら真っ先に外す対象",
+        "予想PER 31.2倍 はセクター内で割高な部類 (中央値 23.4倍)。成長が続く前提が既に価格に入っている",
+        "悪い日の平均下落 (CVaR95%) は日次 2.91%",
+      ],
+      evidence: [
+        { label: "ROE", value: "38.2%", glossary: "returnOnEquity" },
+        { label: "12-1モメンタム", value: "+24.1%", glossary: "factorMomentum" },
+        { label: "予想PER", value: "31.2倍", glossary: "forwardPE" },
+        { label: "質スコア", value: "89", glossary: "factorComposite" },
+      ],
+      conviction: 3, score: 82.4,
+      regimeFit: "上昇基調でボラも落ち着いており、順張りが機能しやすい地形",
+      related: [
+        { symbol: "ORCL", nameJa: "オラクル", region: "US", sector: "software", kind: "sector-peer", kindLabel: "同業", strength: 0.82, evidence: "予想PER 31.2倍 vs 24.8倍 / 相関 0.61", plain: "同じ「ソフトウェア」の銘柄。割高か割安かは、市場全体ではなくこういう同業と比べて初めて判断できる。" },
+        { symbol: "NVDA", nameJa: "エヌビディア", region: "US", sector: "semis", kind: "theme", kindLabel: "テーマ", strength: 0.75, evidence: "AI データセンター / 1. 設計・GPU", plain: "計算の中心。ここの受注が先行指標になる。AI を動かすための巨大なコンピュータ室を建てる話…" },
+        { symbol: "GLD", nameJa: "金 (ゴールド)", region: "US", sector: "gold", kind: "diversifier", kindLabel: "分散", strength: 0.61, evidence: "相関 0.04", plain: "ほとんど連動しない。分散の効果が出やすい組み合わせ。" },
+      ],
+    },
+    {
+      id: "value-recovery:8306.T", rank: 2, symbol: "8306.T", nameJa: "三菱UFJ",
+      region: "JP", sector: "banks", playbook: "value-recovery", playbookNameJa: "割安 × 底打ち確認",
+      headline: "同業比で割安。黒字を保ったまま下げ止まりの兆しが出ている",
+      plain: "「安く放置されているが、下げ止まりの兆しが出ている会社」を拾う戦術。安いだけの銘柄を買うと下がり続けるので、価格が底を打った証拠を必ず条件にする。",
+      thesis: [
+        "予想PER 11.4倍 — 同じ「銀行」の中央値 13.8倍 を下回る (セクター内で下位28%の水準)",
+        "PBR 0.92倍 — 解散価値に近い水準",
+        "営業利益率 31.2% — 黒字を維持しており、安いのは業績崩壊が理由ではない",
+        "50日線を回復 — 下げ止まりの初期サイン",
+        "アナリスト平均目標まで +19% (14名)",
+      ],
+      risks: [
+        "割安が解消されないまま時間だけ過ぎる「バリュートラップ」の可能性。次の決算で業績の底打ちが確認できるかが分岐点",
+        "β 1.21 — 市場が下げるとき増幅される",
+        "悪い日の平均下落 (CVaR95%) は日次 2.44%",
+      ],
+      evidence: [
+        { label: "予想PER", value: "11.4倍", glossary: "forwardPE" },
+        { label: "PBR", value: "0.92倍", glossary: "priceToBook" },
+        { label: "ROE", value: "9.8%", glossary: "returnOnEquity" },
+        { label: "割安スコア", value: "78", glossary: "factorValue" },
+      ],
+      conviction: 3, score: 74.1,
+      regimeFit: "総崩れではないため、個別の割安が見直される余地がある",
+      related: [
+        { symbol: "8766.T", nameJa: "東京海上", region: "JP", sector: "financials", kind: "sector-peer", kindLabel: "同業", strength: 0.7, evidence: "予想PER 11.4倍 vs 14.9倍 / 相関 0.58", plain: "同じ「金融」の銘柄。割高か割安かは、市場全体ではなくこういう同業と比べて初めて判断できる。" },
+        { symbol: "^TNX", nameJa: "米10年金利", region: "US", sector: "macro", kind: "macro-driver", kindLabel: "マクロ要因", strength: 0.44, evidence: "相関 0.44 (同方向)", plain: "金利が上がると割高な成長株や不動産・公益に逆風、銀行に追い風。この銘柄は米10年金利と同じ方向に動く傾向があるので、米10年金利のニュースは直接の材料になる。" },
+      ],
+    },
+    {
+      id: "contrarian-oversold:PG", rank: 3, symbol: "PG", nameJa: "P&G",
+      region: "US", sector: "staples", playbook: "contrarian-oversold", playbookNameJa: "押し目のクオリティ株",
+      headline: "上昇トレンドは維持したまま、短期的に売られすぎた水準",
+      plain: "「中長期のトレンドは生きているのに、短期的に売られすぎた優良株」を拾う戦術。上昇トレンドの銘柄が一時的に下げたところを狙う。下降トレンドの銘柄を拾うのとは根本的に違う。",
+      thesis: [
+        "RSI 38.4 — 短期的に売られすぎの水準まで下げている",
+        "ただし200日線は +4.1% 上 — 中期の上昇トレンド自体は崩れていない",
+        "ROE 31.4% — 業績の質は維持されている",
+        "52週高値から -8.2% — 押し目の深さ",
+        "直下 -1.8% に支持帯 158.40 (過去4回反応) — 撤退ラインを引きやすい",
+      ],
+      risks: [
+        "押し目と下落トレンドの初動は途中まで区別がつかない。200日線を明確に割ったら前提が変わる",
+        "悪い日の平均下落 (CVaR95%) は日次 1.62%",
+      ],
+      evidence: [
+        { label: "RSI", value: "38.4", glossary: "rsi14" },
+        { label: "200日線乖離", value: "+4.1%", glossary: "compositeScore" },
+        { label: "高値から", value: "-8.2%", glossary: "rangePosition52w" },
+        { label: "ROE", value: "31.4%", glossary: "returnOnEquity" },
+      ],
+      conviction: 2, score: 66.3,
+      regimeFit: "総崩れではないため、押し目が押し目として機能しやすい",
+      related: [
+        { symbol: "KO", nameJa: "コカ・コーラ", region: "US", sector: "staples", kind: "sector-peer", kindLabel: "同業", strength: 0.88, evidence: "予想PER 22.1倍 vs 21.4倍 / 相関 0.66", plain: "同じ「生活必需品」の銘柄。割高か割安かは、市場全体ではなくこういう同業と比べて初めて判断できる。" },
+      ],
+    },
+  ],
+};
+overview.ideas = ideaBook;
+// record は ideaBook より前に定義されているため、ここで関連銘柄を差し込む
+record.related = ideaBook.ideas[0].related;
+
 const routes = {
   "/api/overview": overview,
+  "/api/ideas": ideaBook,
   "/api/universe": { version: "1.0.0", size: 135, regions: REGIONS, sectors: SECTORS, instruments: [] },
   "/api/presets": {
     fields: [],
@@ -268,6 +389,16 @@ http.createServer((req, res) => {
   if (p === "/" || p === "/index.html") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return res.end(fs.readFileSync(HTML));
+  }
+  if (p === "/api/glossary") {
+    const key = url.searchParams.get("key");
+    if (key) return GLOSSARY[key] ? json({ key, ...GLOSSARY[key] }) : json({ error: "未収録" });
+    return json({ count: Object.keys(GLOSSARY).length, glossary: GLOSSARY });
+  }
+  if (p === "/api/themes") return json({ count: THEMES.length, themes: THEMES });
+  if (p.startsWith("/api/related/")) {
+    return json({ generatedAt: overview.generatedAt, symbol: "AAPL", nameJa: "アップル",
+                  related: ideaBook.ideas[0].related, themes: THEMES.slice(0, 1) });
   }
   if (routes[p]) return json(routes[p]);
   if (p === "/api/screener") return json({ generatedAt: overview.generatedAt, total: 6, returned: 6, fields: [], rows: leaders.rows, query: {} });

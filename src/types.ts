@@ -483,6 +483,95 @@ export interface Signal {
 }
 
 /* ------------------------------------------------------------------ */
+/* 関連銘柄                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 関連の種類。「関連銘柄」を一括りにしないのが要点で、
+ * 同業 (比較の物差し) と 連動 (分散にならない) と テーマ (波及の順序) は
+ * まったく別の使い道を持つ。
+ */
+export type RelationKind =
+  | "sector-peer"
+  | "co-moving"
+  | "diversifier"
+  | "factor-twin"
+  | "theme"
+  | "macro-driver";
+
+export interface Relation {
+  symbol: string;
+  nameJa: string;
+  region: RegionId;
+  sector: SectorId;
+  kind: RelationKind;
+  kindLabel: string;
+  /** 関係の強さ [0,1] */
+  strength: number;
+  /** 根拠となる実数 */
+  evidence: string;
+  /** 初心者向け: この関係が何を意味するか */
+  plain: string;
+}
+
+/* ------------------------------------------------------------------ */
+/* 銘柄アイデア                                                        */
+/* ------------------------------------------------------------------ */
+
+/** どの戦術に基づく候補か */
+export type PlaybookId =
+  | "momentum-quality"
+  | "value-recovery"
+  | "defensive-rotation"
+  | "mean-reversion"
+  | "breakout"
+  | "dividend-income"
+  | "contrarian-oversold";
+
+export interface Idea {
+  id: string;
+  rank: number;
+  symbol: string;
+  nameJa: string;
+  region: RegionId;
+  sector: SectorId;
+  playbook: PlaybookId;
+  playbookNameJa: string;
+  /** 一行の要旨 */
+  headline: string;
+  /** 初心者向け: 平たく言うと何を狙う話か */
+  plain: string;
+  /** 根拠 (すべて実数を伴う) */
+  thesis: string[];
+  /** 何が起きたらこの見立ては崩れるか */
+  risks: string[];
+  /** 表に出す主要な数値 */
+  evidence: { label: string; value: string; glossary?: string }[];
+  /** 確信度 1-3。根拠の本数と整合性から決まる */
+  conviction: 1 | 2 | 3;
+  /** 候補内での順位付けに使う素点 */
+  score: number;
+  /** 今のレジームにこの戦術が合っているか */
+  regimeFit: string;
+  /** 関連銘柄 (上位のみ) */
+  related: Relation[];
+}
+
+/** アイデア一覧と、その前提 */
+export interface IdeaBook {
+  generatedAt: string;
+  /** 生成時のレジーム判定 */
+  regime: { trend: string; volatility: string; riskAppetite: string } | null;
+  /** 今のレジームで有効とした戦術と、その理由 */
+  activePlaybooks: { id: PlaybookId; nameJa: string; why: string }[];
+  ideas: Idea[];
+  /** 候補を探した母集団の説明 (何から選んだのか) */
+  universeNote: string;
+  /** 免責 */
+  disclaimer: string;
+}
+
+/* ------------------------------------------------------------------ */
 /* 集計・市場全体                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -569,6 +658,8 @@ export interface InstrumentRecord {
   growth: Scorecard | null;
   factors: FactorScores | null;
   signals: Signal[];
+  /** 関連銘柄。種類ごとに意味が違うので kind を必ず添える */
+  related: Relation[];
   /** 直近 120 営業日の終値 (ダッシュボードのスパークライン用) */
   spark: number[];
   dataQuality: {
@@ -640,6 +731,8 @@ export interface Snapshot {
   breadth: Breadth[];
   regime: Regime | null;
   correlation: CorrelationBlock | null;
+  /** レジーム条件付きで生成した銘柄アイデア */
+  ideas: IdeaBook | null;
   news: NewsItem[];
   meta: {
     universeSize: number;

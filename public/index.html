@@ -112,6 +112,38 @@ tbody tr.click{cursor:pointer}
 .err{padding:12px;color:var(--neg);font-size:12px}
 .note{color:var(--dim);font-size:10.5px;padding:8px 12px;border-top:1px solid var(--line);line-height:1.6}
 
+.idea{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:12px;margin-bottom:10px}
+.idea-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.idea-h .nm{font-size:15px;font-weight:700}
+.idea-h .sym{font-family:var(--mono);color:var(--muted);font-size:12px}
+.idea-lead{font-size:12.5px;margin-bottom:8px}
+.idea-plain{background:rgba(76,201,240,.07);border-left:3px solid var(--accent);border-radius:0 5px 5px 0;padding:7px 10px;font-size:12px;margin-bottom:9px;line-height:1.65}
+.idea-plain b{color:var(--accent);font-weight:600}
+.idea-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.idea-box>div.hd{font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600;letter-spacing:.04em}
+.idea-box ul{margin:0;padding-left:16px}
+.idea-box li{font-size:12px;margin-bottom:4px;line-height:1.6}
+.idea-box.risk li{color:#e9b8bb}
+.idea-ev{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}
+.idea-ev .cell{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 9px;min-width:88px}
+.idea-ev .cell .l{font-size:10px;color:var(--muted)}
+.idea-ev .cell .v{font-family:var(--mono);font-size:14px;font-weight:600}
+.conv{display:inline-flex;gap:2px}
+.conv i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block}
+.conv i.on{background:var(--accent)}
+.rel{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.relchip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 10px;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.relchip:hover{border-color:var(--accent);color:var(--accent)}
+.relchip .k{color:var(--dim);font-size:10px;margin-right:4px}
+.gl{border-bottom:1px dotted var(--muted);cursor:help}
+.gl:hover{color:var(--accent);border-bottom-color:var(--accent)}
+#glosspop{position:fixed;z-index:200;max-width:340px;background:var(--panel);border:1px solid var(--accent);border-radius:9px;padding:11px 13px;box-shadow:0 10px 32px rgba(0,0,0,.6);display:none;font-size:12px;line-height:1.7}
+#glosspop.on{display:block}
+#glosspop h4{margin:0 0 5px;font-size:13px;color:var(--accent)}
+#glosspop dl{margin:6px 0 0;display:grid;grid-template-columns:auto 1fr;gap:3px 8px}
+#glosspop dt{color:var(--muted);white-space:nowrap;font-size:11px}
+#glosspop dd{margin:0;font-size:11.5px}
+#glosspop .trap{margin-top:7px;padding-top:6px;border-top:1px solid var(--line);color:var(--warn);font-size:11.5px}
 .newsitem{padding:6px 12px;border-bottom:1px solid #161d28;font-size:12px}
 .newsitem .src{color:var(--dim);font-size:10.5px}
 
@@ -222,6 +254,9 @@ tbody tr.click{cursor:pointer}
   .sheet-h>.spacer{display:none}
   .sheet>div{padding:10px !important}
 
+  .idea-cols{grid-template-columns:1fr}
+  .idea{padding:10px}
+  #glosspop{left:8px !important;right:8px;max-width:none;width:auto}
   .chartwrap>svg{min-width:600px}
   .rrgwrap{overflow-x:auto}
   .rrgwrap>svg{min-width:560px}
@@ -257,6 +292,7 @@ tbody tr.click{cursor:pointer}
 </header>
 <main id="view"><div class="loading">読み込み中…</div></main>
 <div id="modal"><div class="sheet" id="sheet"></div></div>
+<div id="glosspop"></div>
 
 <script>
 "use strict";
@@ -581,6 +617,140 @@ function panelPipeline(m, generatedAt) {
     <div class="note">ユニバースは 15 分ごとに 1 シャードずつ更新される (全周 約2時間)。銘柄ごとに鮮度が違うため、各レコードの as-of を個別詳細に表示している。<b>ファンダメンタルズが取得できなかった銘柄は推定値で埋めず、空欄のままにしている。</b></div>
   </div>`;
 }
+
+/* ================================================================== *
+ * タブ: アイデア (銘柄提案)
+ * ================================================================== */
+function viewIdeas() {
+  const book = S.overview.ideas;
+  if (!book) {
+    return `<div class="panel"><h3>銘柄アイデア</h3><div class="pad muted">
+      レジーム判定に必要な指数データがまだ揃っていないため、アイデアを生成できていません。
+      データ収集が一巡すると表示されます。</div></div>`;
+  }
+
+  const pbFilter = S.ideaPlaybook || "";
+  const regFilter = S.ideaRegion || "";
+  let ideas = book.ideas;
+  if (pbFilter) ideas = ideas.filter((i) => i.playbook === pbFilter);
+  if (regFilter) ideas = ideas.filter((i) => i.region === regFilter);
+
+  const regions = [...new Set(book.ideas.map((i) => i.region))];
+  const r = book.regime;
+  const rt = { bull: ["上昇基調", "pos"], bear: ["下降基調", "neg"], range: ["レンジ", "warn"] };
+  const ra = { "risk-on": ["リスクオン", "pos"], neutral: ["中立", ""], "risk-off": ["リスクオフ", "neg"] };
+
+  return `
+  <div class="panel">
+    <h3>いまの地形と、そこで有効な戦術 <span class="hint">アイデアはこの判定から選ばれています</span></h3>
+    <div class="pad">
+      ${r ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <span class="chip"><b class="${(rt[r.trend]||["",""])[1]}">${esc((rt[r.trend]||[r.trend])[0])}</b></span>
+        <span class="chip">${esc(r.volatility === "stress" ? "ボラ: ストレス" : r.volatility === "elevated" ? "ボラ: 警戒" : r.volatility === "low" ? "ボラ: 低位" : "ボラ: 平常")}</span>
+        <span class="chip"><b class="${(ra[r.riskAppetite]||["",""])[1]}">${esc((ra[r.riskAppetite]||[r.riskAppetite])[0])}</b></span>
+      </div>` : ""}
+      ${book.activePlaybooks.length
+        ? book.activePlaybooks.map((p) => `<div class="small" style="margin-bottom:5px">
+            <b>${esc(p.nameJa)}</b> <span class="muted">— ${esc(p.why)}</span></div>`).join("")
+        : `<div class="muted small">今のレジームで有効と判定できた戦術がありません。無理に候補を出さない設計です。</div>`}
+      <div class="note" style="border:none;padding:10px 0 0">${esc(book.universeNote)}</div>
+    </div>
+  </div>
+  <div style="height:12px"></div>
+
+  <div class="panel">
+    <h3>候補 ${ideas.length} 件
+      <select id="idea-pb" class="hsel">
+        <option value="">すべての戦術</option>
+        ${book.activePlaybooks.map((p) => `<option value="${esc(p.id)}" ${p.id === pbFilter ? "selected" : ""}>${esc(p.nameJa)}</option>`).join("")}
+      </select>
+      <select id="idea-reg" class="hsel" style="margin-left:6px">
+        <option value="">全地域</option>
+        ${regions.map((x) => `<option value="${esc(x)}" ${x === regFilter ? "selected" : ""}>${esc(regionName(x))}</option>`).join("")}
+      </select>
+    </h3>
+    <div class="pad">
+      ${ideas.length ? ideas.map(ideaCard).join("") : `<div class="muted">条件に合う候補がありません。</div>`}
+    </div>
+    <div class="note">${esc(book.disclaimer)}</div>
+  </div>`;
+}
+
+function ideaCard(i) {
+  const conv = `<span class="conv" title="確信度 ${i.conviction}/3">${[1,2,3].map((k)=>`<i class="${k<=i.conviction?"on":""}"></i>`).join("")}</span>`;
+  return `<div class="idea">
+    <div class="idea-h">
+      <span class="muted mono small">#${i.rank}</span>
+      <span class="nm">${esc(i.nameJa)}</span>
+      <span class="sym">${esc(i.symbol)}</span>
+      <span class="tag">${esc(regionName(i.region))}</span>
+      <span class="tag">${esc(sectorName(i.sector))}</span>
+      <span class="tag c">${esc(i.playbookNameJa)}</span>
+      ${conv}
+      <span class="spacer" style="flex:1"></span>
+      <button class="act" data-open="${esc(i.symbol)}">詳細</button>
+    </div>
+
+    <div class="idea-lead">${esc(i.headline)}</div>
+
+    <div class="idea-plain"><b>平たく言うと</b> — ${esc(i.plain)}</div>
+
+    <div class="idea-ev">
+      ${i.evidence.map((e)=>`<div class="cell">
+        <div class="l">${e.glossary ? `<span class="gl" data-gl="${esc(e.glossary)}">${esc(e.label)}</span>` : esc(e.label)}</div>
+        <div class="v">${esc(e.value)}</div></div>`).join("")}
+    </div>
+
+    <div class="idea-cols">
+      <div class="idea-box">
+        <div class="hd">▲ そう考える根拠</div>
+        <ul>${i.thesis.map((t)=>`<li>${esc(t)}</li>`).join("")}</ul>
+      </div>
+      <div class="idea-box risk">
+        <div class="hd">▼ 何が起きたら崩れるか</div>
+        <ul>${i.risks.map((t)=>`<li>${esc(t)}</li>`).join("")}</ul>
+      </div>
+    </div>
+
+    <div class="small muted" style="margin-top:8px">この戦術が今の地形に合う理由: ${esc(i.regimeFit)}</div>
+
+    ${i.related && i.related.length ? `<div class="rel">
+      <span class="muted small" style="align-self:center">関連:</span>
+      ${i.related.map((r)=>`<span class="relchip" data-open="${esc(r.symbol)}" title="${esc(r.plain)}">
+        <span class="k">${esc(r.kindLabel)}</span>${esc(r.nameJa)}</span>`).join("")}
+    </div>` : ""}
+  </div>`;
+}
+
+/* ================================================================== *
+ * 用語解説ポップ
+ * ================================================================== */
+async function showGlossary(key, anchor) {
+  const pop = document.getElementById("glosspop");
+  try {
+    if (!S.glossary) S.glossary = (await api("/api/glossary")).glossary;
+    const g = S.glossary[key];
+    if (!g) return;
+    pop.innerHTML = `<h4>${esc(g.term)}</h4>
+      <div>${esc(g.plain)}</div>
+      <dl>
+        <dt>高いと</dt><dd>${esc(g.high)}</dd>
+        <dt>低いと</dt><dd>${esc(g.low)}</dd>
+      </dl>
+      <div class="trap">⚠ 落とし穴: ${esc(g.trap)}</div>`;
+    pop.classList.add("on");
+    const r = anchor.getBoundingClientRect();
+    const w = Math.min(340, window.innerWidth - 16);
+    let left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+    let top = r.bottom + 8;
+    if (top + pop.offsetHeight > window.innerHeight - 8) {
+      top = Math.max(8, r.top - pop.offsetHeight - 8);
+    }
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+  } catch (e) { /* 解説が取れなくても本体の表示は妨げない */ }
+}
+function hideGlossary() { document.getElementById("glosspop").classList.remove("on"); }
 
 /* ================================================================== *
  * タブ: セクター
@@ -1014,6 +1184,8 @@ function symbolSheet(d, hist) {
         <div style="height:12px"></div>
         ${panelLevels(t, p)}
         <div style="height:12px"></div>
+        ${panelRelated(r.related)}
+        <div style="height:12px"></div>
         ${panelPeers(d.peers)}
         <div style="height:12px"></div>
         ${panelProvenance(r)}
@@ -1329,6 +1501,49 @@ function panelLevels(t, p) {
   </div>`;
 }
 
+function panelRelated(rel) {
+  if (!rel || !rel.length) {
+    return `<div class="panel"><h3>関連銘柄</h3><div class="pad muted">
+      関連の算出はシャード更新時に行われます。この銘柄はまだ更新待ちです。</div></div>`;
+  }
+  // 種類ごとにまとめる。「関連銘柄」を一列に並べると、
+  // 比較対象なのか分散候補なのかが混ざって使い道が分からなくなる
+  const order = ["sector-peer", "theme", "co-moving", "diversifier", "factor-twin", "macro-driver"];
+  const help = {
+    "sector-peer": "割高/割安を判断する物差し。この銘柄の数字は、この人たちと比べて初めて意味を持つ",
+    theme: "供給網やテーマで繋がる銘柄。需要の波及に順序がある",
+    "co-moving": "値動きが揃う。両方持っても分散にならない",
+    diversifier: "連動しない、または逆に動く。組み合わせると値動きが穏やかになる",
+    "factor-twin": "割安さ・質・勢いの構成が似ている。同じ狙いで買える代替候補",
+    "macro-driver": "この銘柄を動かしているマクロ要因。何を見張ればいいかが分かる",
+  };
+  const groups = order
+    .map((k) => ({ k, items: rel.filter((r) => r.kind === k) }))
+    .filter((g) => g.items.length > 0);
+
+  return `<div class="panel">
+    <h3>関連銘柄 <span class="hint">関係の種類ごとに意味が違う</span></h3>
+    <div class="pad">
+      ${groups.map((g) => `<div style="margin-bottom:12px">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">
+          <span class="tag">${esc(g.items[0].kindLabel)}</span>
+          <span class="muted small">${esc(help[g.k] || "")}</span>
+        </div>
+        ${g.items.map((r) => `<div style="border-left:2px solid var(--line);padding:4px 0 4px 9px;margin-bottom:5px">
+          <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">
+            <span class="click" data-open="${esc(r.symbol)}" style="cursor:pointer;font-weight:600">${esc(r.nameJa)}</span>
+            <span class="mono muted small">${esc(r.symbol)}</span>
+            <div class="bar" style="width:52px" title="関係の強さ ${r.strength}">
+              <i style="width:${Math.round(r.strength * 100)}%;background:var(--accent)"></i></div>
+            <span class="mono small muted">${esc(r.evidence)}</span>
+          </div>
+          <div class="small muted" style="margin-top:2px;line-height:1.6">${esc(r.plain)}</div>
+        </div>`).join("")}
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
 function panelPeers(peers) {
   if (!peers || !peers.length) return "";
   return `<div class="panel">
@@ -1370,6 +1585,7 @@ function panelProvenance(r) {
  * ================================================================== */
 const TABS = [
   ["overview", "概況", viewOverview],
+  ["ideas", "銘柄アイデア", viewIdeas],
   ["sectors", "セクター", viewSectors],
   ["screener", "スクリーナー", viewScreener],
   ["rotation", "ローテーション", viewRotation],
@@ -1425,6 +1641,21 @@ function attach() {
     el.onclick = () => openSymbol(el.dataset.sym);
   });
 
+  // アイデアカードから個別詳細へ
+  document.querySelectorAll("[data-open]").forEach((el) => {
+    el.onclick = (e) => { e.stopPropagation(); openSymbol(el.dataset.open); };
+  });
+
+  // 用語解説。タップ環境でも使えるよう click で開閉する
+  document.querySelectorAll("[data-gl]").forEach((el) => {
+    el.onclick = (e) => { e.stopPropagation(); showGlossary(el.dataset.gl, el); };
+  });
+
+  const ipb = document.getElementById("idea-pb");
+  if (ipb) ipb.onchange = () => { S.ideaPlaybook = ipb.value; render(); };
+  const ireg = document.getElementById("idea-reg");
+  if (ireg) ireg.onchange = () => { S.ideaRegion = ireg.value; render(); };
+
   // スクリーナー
   const add = document.getElementById("sc-add");
   if (add) {
@@ -1476,7 +1707,12 @@ function attach() {
 }
 
 document.getElementById("modal").onclick = (e) => { if (e.target.id === "modal") closeModal(); };
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModal(); hideGlossary(); } });
+document.addEventListener("click", (e) => {
+  const pop = document.getElementById("glosspop");
+  if (pop.classList.contains("on") && !pop.contains(e.target)) hideGlossary();
+});
+window.addEventListener("scroll", hideGlossary, { passive: true });
 
 document.getElementById("refresh").onclick = async () => {
   const b = document.getElementById("refresh");

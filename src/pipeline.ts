@@ -33,6 +33,10 @@ import { computePriceSummary } from "./analytics/returns.ts";
 import { computeRisk } from "./analytics/risk.ts";
 import { rotationPoint } from "./analytics/rotation.ts";
 import { generateSignals } from "./analytics/signals.ts";
+import { computeRelated } from "./analytics/related.ts";
+import { themesFor } from "./config/themes.ts";
+import type { RelatedInput } from "./analytics/related.ts";
+import { generateIdeas } from "./analytics/ideas.ts";
 import { computeTechnicals, sparkline } from "./analytics/technicals.ts";
 import {
   loadAllSeries,
@@ -47,6 +51,7 @@ import {
 import type {
   Breadth,
   Env,
+  IdeaBook,
   Instrument,
   InstrumentRecord,
   NewsItem,
@@ -147,6 +152,7 @@ export function analyzeInstrument(
     growth: null,
     factors: null,
     signals: [],
+    related: [],
     spark: sparkline(bars, 120),
     dataQuality: {
       bars: bars.length,
@@ -363,6 +369,52 @@ export async function runPipeline(
 
   applyCrossSection(records, env.FACTOR_WEIGHTS);
 
+  /* ---------- 5b. 関連銘柄 ---------- */
+  // 相関を伴うので、今回取り直した銘柄だけを対象にする。
+  // 比較相手は「同セクター + セクター代表 + マクロ」に絞る。全銘柄と
+  // 総当たりすると 135×135 の相関計算になって CPU 予算に載らない。
+  const relatedTargets = opts.recomputeAll
+    ? Object.values(records)
+    : Object.values(records).filter((r) => fetchedSeries.has(r.instrument.symbol));
+
+  for (const target of relatedTargets) {
+    const tBars = allSeries[target.instrument.symbol]?.bars;
+    if (!tBars) continue;
+    const peerSymbols = new Set<string>();
+    for (const r of Object.values(records)) {
+      const i = r.instrument;
+      if (
+        i.sector === target.instrument.sector ||
+        i.role === "sector-proxy" ||
+        i.role === "macro"
+      ) {
+        peerSymbols.add(i.symbol);
+      }
+    }
+    // テーマで繋がる銘柄は、セクターが違っても比較対象に入れる
+    for (const t of themesFor(target.instrument.symbol)) {
+      for (const c of t.chain) for (const sym of c.symbols) peerSymbols.add(sym);
+    }
+
+    const pool: RelatedInput[] = [];
+    for (const sym of peerSymbols) {
+      const rec = records[sym];
+      const bars = allSeries[sym]?.bars;
+      if (rec && bars && sym !== target.instrument.symbol) {
+        pool.push({ symbol: sym, record: rec, bars });
+      }
+    }
+    if (pool.length < 3) continue;
+    try {
+      target.related = computeRelated(
+        { symbol: target.instrument.symbol, record: target, bars: tBars },
+        pool
+      );
+    } catch (e) {
+      errors.push(`related:${target.instrument.symbol}:${errorLabel(e)}`);
+    }
+  }
+
   /* ---------- 6. 集計 ---------- */
   const sentiment = await computeSentiment(env, news, 6).catch(
     () => new Map<string, SentimentResult>()
@@ -396,6 +448,16 @@ export async function runPipeline(
   /* ---------- 9. レジーム ---------- */
   const regime = computeRegime(records, globalBreadth);
 
+  /* ---------- 9b. 銘柄アイデア ---------- */
+  // レジームが決まってからでないと「今どの戦術が有効か」が決まらないので、
+  // 必ずレジーム判定の後に置く。
+  let ideaBook: IdeaBook | null = null;
+  try {
+    ideaBook = generateIdeas(records, regime, { perPlaybook: 3, limit: 18 });
+  } catch (e) {
+    errors.push(`ideas:${errorLabel(e)}`);
+  }
+
   /* ---------- 10. 相関 ---------- */
   const corrSymbols = [
     "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLI", "XLB", "XLRE", "XLC",
@@ -417,6 +479,7 @@ export async function runPipeline(
     breadth,
     regime,
     correlation,
+    ideas: ideaBook,
     news: news.slice(0, 60),
     meta: {
       universeSize: UNIVERSE.length,

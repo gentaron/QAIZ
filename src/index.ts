@@ -14,6 +14,8 @@ import {
   loadSeries,
 } from "./storage.ts";
 import { PRESETS, SUMMARY_FIELDS, runScreener } from "./analytics/screener.ts";
+import { GLOSSARY } from "./config/glossary.ts";
+import { THEMES, themesFor } from "./config/themes.ts";
 import type { Filter, Operator, ScreenerQuery } from "./analytics/screener.ts";
 import type { Env, InstrumentRecord, RegionId, SectorId } from "./types.ts";
 
@@ -146,6 +148,18 @@ async function handleApi(
   if (path === "/api/presets") {
     return json({ presets: PRESETS, fields: SUMMARY_FIELDS }, 200, 3600);
   }
+  if (path === "/api/glossary") {
+    // 用語解説は静的なので、レコードの読み出しを伴わずに返す
+    const key = url.searchParams.get("key");
+    if (key) {
+      const entry = GLOSSARY[key];
+      return entry ? json({ key, ...entry }, 200, 3600) : json({ error: `未収録の用語: ${key}` }, 404);
+    }
+    return json({ count: Object.keys(GLOSSARY).length, glossary: GLOSSARY }, 200, 3600);
+  }
+  if (path === "/api/themes") {
+    return json({ count: THEMES.length, themes: THEMES }, 200, 3600);
+  }
 
   if (path === "/api/refresh" && request.method === "POST") {
     const shardParam = url.searchParams.get("shard");
@@ -186,7 +200,8 @@ async function handleApi(
     path === "/api/screener" ||
     path === "/api/factors" ||
     path === "/api/compare" ||
-    path.startsWith("/api/symbol/");
+    path.startsWith("/api/symbol/") ||
+    path.startsWith("/api/related/");
 
   const records = needsRecords ? await loadRecords(env) : {};
   const list = Object.values(records);
@@ -224,6 +239,7 @@ async function handleApi(
         sectors: meta.sectors,
         rotation: meta.rotation,
         correlation: meta.correlation,
+        ideas: meta.ideas,
         news: meta.news.slice(0, 24),
         leaders: top,
         laggards: bottom,
@@ -262,6 +278,21 @@ async function handleApi(
 
     case path === "/api/correlation":
       return json({ generatedAt: meta.generatedAt, correlation: meta.correlation });
+
+    case path === "/api/ideas": {
+      if (!meta.ideas) {
+        return json(
+          { error: "アイデアがまだ生成されていない (レジーム判定に必要な指数データ待ち)" },
+          503
+        );
+      }
+      const region = url.searchParams.get("region");
+      const playbook = url.searchParams.get("playbook");
+      let ideas = meta.ideas.ideas;
+      if (region) ideas = ideas.filter((i) => i.region === region);
+      if (playbook) ideas = ideas.filter((i) => i.playbook === playbook);
+      return json({ ...meta.ideas, ideas });
+    }
 
     case path === "/api/news":
       return json({ generatedAt: meta.generatedAt, news: meta.news });
@@ -369,6 +400,33 @@ async function handleApi(
           composite: r.factors?.composite ?? null,
         }));
       return json({ generatedAt: meta.generatedAt, record: rec, peers });
+    }
+
+    case path.startsWith("/api/related/"): {
+      const symbol = decodeURIComponent(path.slice("/api/related/".length));
+      const rec = records[symbol];
+      if (!rec) return json({ error: `${symbol} は未収集または存在しない` }, 404);
+      // 関連銘柄に最新の価格・スコアを添えて返す (UI 側で再取得しなくて済む)
+      const enriched = rec.related.map((r) => {
+        const o = records[r.symbol];
+        return {
+          ...r,
+          last: o?.price.last ?? null,
+          currency: o?.price.currency ?? null,
+          r1m: o?.price.r1m ?? null,
+          r3m: o?.price.r3m ?? null,
+          forwardPE: o?.fundamentals?.forwardPE ?? null,
+          returnOnEquity: o?.fundamentals?.returnOnEquity ?? null,
+          composite: o?.factors?.composite ?? null,
+        };
+      });
+      return json({
+        generatedAt: meta.generatedAt,
+        symbol,
+        nameJa: rec.instrument.nameJa,
+        related: enriched,
+        themes: themesFor(symbol),
+      });
     }
 
     case path.startsWith("/api/history/"): {
