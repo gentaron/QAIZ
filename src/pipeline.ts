@@ -10,6 +10,8 @@ import {
   shardUniverse,
 } from "./config/index.ts";
 import { aiSentiment, matchHeadlines } from "./ai/sentiment.ts";
+import { generateNewsBrief, ruleBasedBrief } from "./ai/brief.ts";
+import type { BriefContext } from "./ai/brief.ts";
 import { FetchBudget, mapWithConcurrency } from "./datasources/http.ts";
 import { fetchNews } from "./datasources/rss.ts";
 import { fetchStooqDaily } from "./datasources/stooq.ts";
@@ -28,6 +30,7 @@ import {
   buildScorecards,
 } from "./analytics/fundamentals.ts";
 import { computeFactors, parseWeights } from "./analytics/factors.ts";
+import { buildOutlook } from "./analytics/outlook.ts";
 import { computeRegime } from "./analytics/regime.ts";
 import { computePriceSummary } from "./analytics/returns.ts";
 import { computeRisk } from "./analytics/risk.ts";
@@ -40,6 +43,7 @@ import {
   loadSession,
   nextShard,
   saveMeta,
+  saveOutlook,
   saveRecord,
   saveSeries,
   saveSession,
@@ -49,6 +53,7 @@ import type {
   Env,
   Instrument,
   InstrumentRecord,
+  NewsBrief,
   NewsItem,
   RegionId,
   RotationPoint,
@@ -68,6 +73,10 @@ import type {
  * 副作用として「銘柄ごとに鮮度が違う」状態になるが、これは隠すべきでは
  * ないので record.asOf と dataQuality.lastBarDate をそのまま UI に出す。
  */
+
+/** AI 呼び出し用に取り置く予算 (セクターセンチメント 6 + 概況要約 1) */
+const AI_CALL_RESERVE = 7;
+const SENTIMENT_MAX_CALLS = 6;
 
 function envInt(v: string | undefined, fallback: number): number {
   const n = Number(v);
@@ -236,10 +245,16 @@ export function applyCrossSection(
   }
 }
 
-/** セクターごとのニュースセンチメント (AI 呼び出し数を抑えるため上位のみ) */
+/**
+ * セクターごとのニュースセンチメント (AI 呼び出し数を抑えるため上位のみ)。
+ *
+ * Workers AI の呼び出しもサブリクエストを 1 本消費する。予算を通さずに
+ * 呼ぶと、価格取得と合わせて無料プランの上限 (50本/実行) を静かに超える。
+ */
 async function computeSentiment(
   env: Env,
   news: NewsItem[],
+  budget: FetchBudget,
   maxCalls: number
 ): Promise<Map<string, SentimentResult>> {
   const out = new Map<string, SentimentResult>();
@@ -250,10 +265,10 @@ async function computeSentiment(
     const headlines = matchHeadlines(news, meta.keywords);
     if (headlines.length === 0) continue;
     const key = `${cell.region}/${cell.sector}`;
-    if (calls < maxCalls) {
-      out.set(key, await aiSentiment(env, meta.nameEn, headlines));
-      calls++;
-    }
+    if (calls >= maxCalls) break;
+    if (!budget.takeReserved(`ai-sentiment:${key}`)) break;
+    out.set(key, await aiSentiment(env, meta.nameEn, headlines));
+    calls++;
   }
   return out;
 }
@@ -272,7 +287,12 @@ export async function runPipeline(
   const started = Date.now();
   const errors: string[] = [];
   const shards = envInt(env.SHARDS, DEFAULT_SHARDS);
-  const budget = new FetchBudget(envInt(env.FETCH_BUDGET, DEFAULT_FETCH_BUDGET));
+  // AI 呼び出し (セクターセンチメント最大 6 + 概況要約 1) の枠を先に取り置く。
+  // 価格取得に先着で食われると、概況の要約が毎回出なくなる。
+  const budget = new FetchBudget(
+    envInt(env.FETCH_BUDGET, DEFAULT_FETCH_BUDGET),
+    AI_CALL_RESERVE
+  );
 
   const shard = opts.shard !== undefined ? opts.shard : await nextShard(env, shards);
   const targets = shardUniverse(shard, shards);
@@ -364,7 +384,7 @@ export async function runPipeline(
   applyCrossSection(records, env.FACTOR_WEIGHTS);
 
   /* ---------- 6. 集計 ---------- */
-  const sentiment = await computeSentiment(env, news, 6).catch(
+  const sentiment = await computeSentiment(env, news, budget, SENTIMENT_MAX_CALLS).catch(
     () => new Map<string, SentimentResult>()
   );
   const sectors = buildSectorAggregates(records, sentiment);
@@ -396,6 +416,25 @@ export async function runPipeline(
   /* ---------- 9. レジーム ---------- */
   const regime = computeRegime(records, globalBreadth);
 
+  /* ---------- 9-b. ニュース概況の要約 ---------- *
+   * レジームと幅が出てからでないと「数字と突き合わせた要約」が書けないので、
+   * センチメント判定より後ろに置いている。AI が使えなくても必ず値を返す。
+   */
+  const briefContext: BriefContext = { regime, breadth, sectors };
+  let newsBrief: NewsBrief;
+  if (budget.takeReserved("ai-brief")) {
+    newsBrief = await generateNewsBrief(env, news, briefContext).catch((e) =>
+      ruleBasedBrief(news, briefContext, `要約の生成に失敗: ${errorLabel(e, 40)}`)
+    );
+  } else {
+    newsBrief = ruleBasedBrief(news, briefContext, "サブリクエスト予算切れで AI を呼べなかった");
+  }
+
+  /* ---------- 9-c. セクター見通し ---------- *
+   * 外部フェッチも AI も使わない純粋な計算。予算切れでも必ず出る。
+   */
+  const outlook = buildOutlook({ sectors, records, rotation, regime, news });
+
   /* ---------- 10. 相関 ---------- */
   const corrSymbols = [
     "XLK", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLI", "XLB", "XLRE", "XLC",
@@ -409,7 +448,7 @@ export async function runPipeline(
 
   /* ---------- 11. 保存 ---------- */
   const covered = Object.keys(records).length;
-  const meta: Omit<Snapshot, "records"> = {
+  const meta: Omit<Snapshot, "records" | "outlook"> = {
     generatedAt: new Date().toISOString(),
     version: VERSION,
     sectors,
@@ -418,6 +457,7 @@ export async function runPipeline(
     regime,
     correlation,
     news: news.slice(0, 60),
+    newsBrief,
     meta: {
       universeSize: UNIVERSE.length,
       covered,
@@ -431,10 +471,13 @@ export async function runPipeline(
     },
   };
 
+  // 見通しは柱の内訳を持つぶん重い。meta と同じ値に入れると DO の
+  // 1 値あたりの上限 (128 KiB) に当たるので、別キーに分けて保存する。
   await Promise.all([
     saveMeta(env, meta),
+    saveOutlook(env, outlook),
     ...Object.values(records).map((r) => saveRecord(env, r).catch(() => {})),
   ]);
 
-  return { ...meta, records };
+  return { ...meta, outlook, records };
 }
