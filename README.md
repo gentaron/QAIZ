@@ -443,7 +443,7 @@ src/
 
 public/index.html       ダッシュボード (ビルド不要の素の HTML/CSS/JS 1 ファイル)
 dev/mock-server.mjs     UI 確認用のモック API サーバー
-test/                   107 テスト
+test/                   分析エンジン・PIT ジャーナル・共有configドリフトのテスト
 ```
 
 依存の向きは常に **上から下** です。`analytics/` は `datasources/` を知らず、
@@ -620,12 +620,12 @@ npm run dev:mock     # http://127.0.0.1:8787
 npm run dev            # ローカル (wrangler dev)
 npm run dev:mock       # モック API でダッシュボードだけ確認 (ネットワーク不要)
 npm run typecheck      # 本体 + テスト + scripts の型検査
-npm test               # 126 テスト
+npm test               # 分析エンジンのテスト
 npm run export:shared  # configs/ の生成物を更新 (ユニバース / パリティベクタ)
 
 # 研究ラボ
 npm run lab:doctor     # 環境と設定の確認
-npm run lab:test       # 92 テスト (ネットワーク不要)
+npm run lab:test       # 研究ラボのテスト (ネットワーク不要)
 ```
 
 テストは Node のネイティブ型ストリッピングで `.ts` を直接実行します (Node 22.18+)。

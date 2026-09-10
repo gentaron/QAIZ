@@ -99,7 +99,7 @@ Validation` を整理する。
 完了条件:
 
 - [ ] 実行成功
-- [ ] テスト成功 (TS 126 件 + Python 92 件が全部緑)
+- [ ] テスト成功 (`npm test` と `cd lab && pytest` が両方緑)
 - [ ] 結果確認
 - [ ] データリーケージ確認
 - [ ] 再現性確認
@@ -197,14 +197,14 @@ cd lab && pytest tests/test_parity.py
 ```bash
 # Worker
 npm run typecheck              # tsc (src と test/scripts の両方)
-npm test                       # node --test (126件)
+npm test                       # node --test
 npm run export:shared          # configs/ の生成物を更新
 npm run dev                    # wrangler dev
 npm run deploy                 # wrangler deploy
 
 # Lab
 cd lab
-python -m pytest -q                                   # 92件
+python -m pytest -q                                   # 全テスト
 ruff check .
 python -m qaiz_lab.cli doctor                         # 環境と設定の確認
 python -m qaiz_lab.cli probe --provider jquants       # データの可否を実測

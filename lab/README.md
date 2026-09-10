@@ -162,7 +162,7 @@ PIT としては最も厳密な部類になる。
 ## テスト
 
 ```bash
-python -m pytest -q      # 92件
+python -m pytest -q
 ruff check .
 ```
 
@@ -176,7 +176,7 @@ ruff check .
 | `test_backtest_portfolio.py` | 制約が再正規化で解けないこと。乱数のシャープが 0 近傍 |
 | `test_validation.py` | ノイズから選んだ最良が DSR で棄却されること |
 | `test_parity.py` | TypeScript と同じ数字を出すこと |
-| `test_experiments.py` | 効果ゼロの世界で \|IC\| が 0.15 未満に収まること |
+| `test_experiments.py` | 効果ゼロの世界で \|IC\| が 0.10 未満に収まること (実測 0.049) |
 | `test_features.py` | 全特徴量に `availability` があること |
 
 ---
