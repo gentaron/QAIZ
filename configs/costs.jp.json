@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "id": "jp_retail_default",
+  "currency": "JPY",
+  "_note": "全部「仮定」であって実測ではない。実測値が取れたら差し替える前提の初期値。バックテスト結果には必ずこの ID が刻まれる。",
+
+  "commission": {
+    "model": "bps_with_floor",
+    "bps": 5.0,
+    "_note_bps": "片道 0.05%。ネット証券の現物取引を想定した保守側の値。約定代金が小さいと最低手数料が効くので floor を併用する。",
+    "floor_jpy": 0.0,
+    "_note_floor": "0 は「手数料無料コース」を仮定した値。実際の口座に合わせて上げること。上げるとキャパシティ分析の小口側が現実的になる。"
+  },
+
+  "spread": {
+    "model": "half_spread_bps",
+    "bps": 5.0,
+    "_note": "スプレッドの半分を片道コストとして払う仮定。日本株の呼値は価格帯で階段状に変わるので、本来は価格依存。tick_table を使うと実装済みの階段モデルに切り替わる。",
+    "use_tick_table": false,
+    "tick_table_note": "TSE の呼値単位 (TOPIX100 とそれ以外で異なる) を実装する場合はここを true にする。現状は未実装 — 有効にすると NotImplementedError で止まる (黙って bps にフォールバックしない)。"
+  },
+
+  "impact": {
+    "model": "sqrt_participation",
+    "coefficient_bps": 10.0,
+    "_note_model": "impact_bps = coefficient_bps * sqrt(注文サイズ / ADV)。平方根則。ADV の 1% を叩くと 1bp、100% を叩くと 10bp という当たり。",
+    "_note_honesty": "この係数は文献的な当たりであって、この口座・この銘柄での実測ではない。キャパシティ分析の結論はこの 1 つの数字に強く依存する。だからストレステストで必ず ×2 / ×3 を回す。"
+  },
+
+  "borrow": {
+    "short_enabled": true,
+    "annual_fee_bps": 150.0,
+    "_note": "空売りの貸株料。制度信用の逆日歩は銘柄・日によって桁が変わるので、ここでは一定の年率でしか近似していない。逆日歩が付く銘柄を空売る戦略は、この仮定では評価できない。",
+    "hard_to_borrow_excluded": false,
+    "_note_htb": "貸借銘柄でない銘柄は本来ショートできない。銘柄マスターに貸借区分がある場合のみ厳密に効かせる (無い場合は結果に short_constraint=UNVERIFIED が付く)。"
+  },
+
+  "settlement": {
+    "lot_size": 100,
+    "_note_lot": "日本株の売買単位は原則 100 株。端数を無視すると小口のキャパシティを過大評価する。round_lots=true でバックテストに効かせる。",
+    "round_lots": true
+  },
+
+  "stress_multipliers": {
+    "commission": [1, 2, 3],
+    "spread": [1, 2, 3],
+    "impact": [1, 2, 3],
+    "_note": "ストレステストの倍率。1 倍で勝って 2 倍で消える戦略は「コスト前のアルファ」であって戦略ではない。"
+  }
+}

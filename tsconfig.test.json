@@ -8,5 +8,7 @@
   "compilerOptions": {
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  // scripts/ も Node 側。configs/ の生成物を作る場所で、
+  // ドリフト検査テストがここから import するので型検査の対象に含める。
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

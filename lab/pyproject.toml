@@ -1,0 +1,30 @@
+[project]
+name = "qaiz-lab"
+version = "0.1.0"
+description = "QAIZ 日本株クオンツ研究ラボ (ローカル実行・無料構成)"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "pandas>=2.1"]
+
+[project.optional-dependencies]
+# 任意。無くても全機能が動く (無いものは NotImplementedError で明示的に止まる)
+research = ["scikit-learn>=1.4", "lightgbm>=4.0", "matplotlib>=3.8", "pyarrow>=15.0"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["qaiz_lab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error::FutureWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "PERF"]
+ignore = ["E501"]

@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "id": "jp_liquid_prime",
+  "_note": "銘柄リストではなく選定ルール。理由は configs/README.md を参照 (生存者バイアス)。",
+
+  "market": {
+    "segments": ["prime", "standard"],
+    "_note_segments": "growth を既定で外しているのは、上場後日が浅く価格系列が短い銘柄が多く、252日を要する指標が軒並み欠損になるため。研究で使いたければここに 'growth' を足す。",
+    "exclude_asset_types": ["etf", "reit", "etn", "preferred", "infrastructure_fund"],
+    "_note_exclude": "ETF/REIT は財務指標の意味が個別株と違う。信用残の解釈も違う (裁定が絡む)。同じユニバースに混ぜると PER の中央値が壊れる。"
+  },
+
+  "liquidity": {
+    "min_adv_jpy": 100000000,
+    "adv_window_days": 20,
+    "min_price_jpy": 100,
+    "_note_min_price": "低位株は最小呼値の相対幅が大きく、往復コストがリターンを飲む。100円未満は 1円 の呼値が 1% を超える。",
+    "min_history_days": 252,
+    "_note_history": "252営業日 = 1年。ボラ・ベータ・12-1モメンタムがこれを要求する。満たさない銘柄は「除外」ではなく「その日は不採用」であり、条件を満たした日から自動で入る。"
+  },
+
+  "listing": {
+    "require_listed_at_signal_date": true,
+    "_note_listed": "シグナル日にその銘柄が上場していたことを、その日時点の銘柄マスターで確認する。上場前・上場廃止後の日付にポジションを持たせない。",
+    "include_delisted_history": true,
+    "_note_delisted": "上場廃止銘柄を過去のユニバースから消さない。消すと生存者バイアスになる。データソースが廃止銘柄を返せない場合、結果に survivorship_bias=PRESENT が付く。",
+    "min_days_since_listing": 60,
+    "_note_since_listing": "IPO直後は需給が特殊で、しかも信用取引の制度信用銘柄になるまで時間差がある。R001 の対象からは外す。"
+  },
+
+  "rebalance": {
+    "universe_refresh": "monthly",
+    "_note_refresh": "ユニバース自体の入れ替えは月次。日次で入れ替えると流動性境界の銘柄が出たり入ったりして、回転率がユニバース定義由来で膨らむ。"
+  },
+
+  "benchmark": {
+    "primary": "TOPIX",
+    "secondary": "NIKKEI225",
+    "_note": "超過リターンの基準。等ウェイトのユニバース平均も別途ベースラインとして必ず並べる (README の 40 を参照)。"
+  },
+
+  "sector_scheme": {
+    "source": "jpx_33",
+    "_note": "JPX の 33 業種区分。GICS は無料では手に入らない。17業種区分に丸めるオプションは sector_rollup_17 で切り替える。",
+    "sector_rollup_17": false,
+    "min_names_per_sector": 5,
+    "_note_min_names": "業種内中立化・業種内Zスコアは、その日その業種に 5 銘柄未満しか無ければ計算しない (null)。3銘柄のZスコアは順位そのもので、統計ではない。"
+  }
+}

@@ -18,6 +18,7 @@ import {
   fetchYahooChart,
   fetchYahooQuoteSummary,
 } from "./datasources/yahoo.ts";
+import { prunePit, recordPitObservations } from "./pit.ts";
 import { buildSectorAggregates } from "./analytics/aggregate.ts";
 import { computeBreadth } from "./analytics/breadth.ts";
 import { correlationMatrix } from "./analytics/correlation.ts";
@@ -316,6 +317,33 @@ export async function runPipeline(
     });
   }
 
+  /* ---------- 4.5 PIT ジャーナルへの記録 ----------
+   *
+   * **今回実際に取得した観測だけ**を記録する。前回から引き継いだ値を
+   * 混ぜてはいけない — 引き継ぎ値に今の時刻を付けると observed_at が嘘になり、
+   * Point-in-Time データとしての価値が消える。
+   *
+   * ここが研究ラボとの接続点になる。予想PER・目標株価・レーティングは
+   * 後から過去分を取り直せないので、見たときに残さないと永久に失われる。
+   * 詳細は src/pit.ts の冒頭を参照。 */
+  let pitWritten = 0;
+  if (fundamentals.size > 0) {
+    try {
+      pitWritten = await recordPitObservations(
+        env,
+        [...fundamentals.entries()].map(([symbol, v]) => ({
+          symbol,
+          fundamentals: v.fundamentals,
+          consensus: v.consensus,
+        }))
+      );
+    } catch (e) {
+      errors.push(`pit:${errorLabel(e, 60)}`);
+    }
+  }
+  // 保持期限を過ぎた日付を少しずつ掃除する。失敗しても分析は続ける。
+  const pruned = await prunePit(env).catch(() => ({ deleted: 0, cutoff: "" }));
+
   /* ---------- 5. 分析 ---------- */
   const cachedSeries = await loadAllSeries(env).catch(() => ({} as Record<string, Series>));
   const allSeries: Record<string, Series> = { ...cachedSeries };
@@ -428,6 +456,7 @@ export async function runPipeline(
       dataSources: ["yahoo-finance", "stooq", "rss"],
       elapsedMs: Date.now() - started,
       errors: [...errors, ...budget.skipped.map((s) => `budget-skip:${s}`)].slice(0, 30),
+      pit: { written: pitWritten, pruned: pruned.deleted },
     },
   };
 

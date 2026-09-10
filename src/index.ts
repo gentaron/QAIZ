@@ -13,6 +13,7 @@ import {
   loadRecords,
   loadSeries,
 } from "./storage.ts";
+import { loadPitRecords, pitStatus, toNdjson } from "./pit.ts";
 import { PRESETS, SUMMARY_FIELDS, runScreener } from "./analytics/screener.ts";
 import type { Filter, Operator, ScreenerQuery } from "./analytics/screener.ts";
 import type { Env, InstrumentRecord, RegionId, SectorId } from "./types.ts";
@@ -43,6 +44,8 @@ export { AnalyticsStore };
  *   GET  /api/correlation           相関行列・主成分・クラスタ
  *   GET  /api/factors               ファクターランキング
  *   GET  /api/news                  収集済みニュース
+ *   GET  /api/pit/status            Point-in-Time ジャーナルの蓄積状況
+ *   GET  /api/pit/export?from=&to=  PIT ジャーナルの NDJSON エクスポート (研究ラボ用)
  *   POST /api/refresh?shard=n&full=1  パイプライン手動実行
  *   GET  /*                         静的ダッシュボード
  */
@@ -145,6 +148,33 @@ async function handleApi(
   }
   if (path === "/api/presets") {
     return json({ presets: PRESETS, fields: SUMMARY_FIELDS }, 200, 3600);
+  }
+
+  /* ---- Point-in-Time ジャーナル (研究ラボとの接続点) ----
+   *
+   * スナップショット (meta) が無くても答えられる必要がある。PIT の記録は
+   * 分析結果とは独立に積み上がるもので、「まだ分析が終わっていないから
+   * PIT も見られない」では退避のタイミングを逃す。 */
+  if (path === "/api/pit/status") {
+    return json(await pitStatus(env), 200, 60);
+  }
+
+  if (path === "/api/pit/export") {
+    const from = url.searchParams.get("from") ?? undefined;
+    const to = url.searchParams.get("to") ?? undefined;
+    const limit = Number(url.searchParams.get("limit")) || undefined;
+    const records = await loadPitRecords(env, { from, to, limit });
+    // NDJSON で返す。ラボ側は 1 行ずつ追記マージするので、配列より扱いやすい。
+    return new Response(toNdjson(records), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        // 観測は追記のみで書き換わらないが、新しい観測が増えるのでキャッシュは短く
+        "Cache-Control": "public, max-age=300",
+        "Access-Control-Allow-Origin": "*",
+        "X-QAIZ-PIT-Records": String(records.length),
+      },
+    });
   }
 
   if (path === "/api/refresh" && request.method === "POST") {
