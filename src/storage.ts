@@ -1,4 +1,4 @@
-import type { Bar, Env, InstrumentRecord, Series, Snapshot } from "./types.ts";
+import type { Bar, Env, InstrumentRecord, OutlookBoard, Series, Snapshot } from "./types.ts";
 import type { YahooSession } from "./datasources/yahoo.ts";
 
 /**
@@ -10,16 +10,18 @@ import type { YahooSession } from "./datasources/yahoo.ts";
  * 保存を 3 種類に分けているのは、DO ストレージの 1 値あたりのサイズ上限
  * (128 KiB) があるため。全銘柄のレコードを 1 つの JSON にすると軽く超える。
  *   meta:v1      … スナップショットのうち銘柄レコード以外 (集計・レジーム等)
+ *   outlook:v1   … セクター見通し (柱の内訳を持つので meta とは分ける)
  *   rec:<symbol> … 銘柄 1 本ぶんの分析結果
  *   bars:<symbol>… 価格系列 (シャード更新なので、取っていない回でも
  *                  相関・ローテーション計算に使えるよう残しておく)
  */
 
 const META_KEY = "meta:v1";
+const OUTLOOK_KEY = "outlook:v1";
 const CURSOR_KEY = "cursor:v1";
 const SESSION_KEY = "session:yahoo";
 
-type MetaSnapshot = Omit<Snapshot, "records">;
+type MetaSnapshot = Omit<Snapshot, "records" | "outlook">;
 
 interface RpcRequest {
   op: "get" | "put" | "delete" | "list" | "mget";
@@ -146,11 +148,19 @@ export async function saveRecord(env: Env, rec: InstrumentRecord): Promise<void>
   await kvPut(env, `rec:${rec.instrument.symbol}`, rec);
 }
 
+export async function loadOutlook(env: Env): Promise<OutlookBoard | null> {
+  return kvGet<OutlookBoard>(env, OUTLOOK_KEY);
+}
+
+export async function saveOutlook(env: Env, outlook: OutlookBoard | null): Promise<void> {
+  await kvPut(env, OUTLOOK_KEY, outlook);
+}
+
 export async function loadSnapshot(env: Env): Promise<Snapshot | null> {
   const meta = await loadMeta(env);
   if (!meta) return null;
-  const records = await loadRecords(env);
-  return { ...meta, records };
+  const [records, outlook] = await Promise.all([loadRecords(env), loadOutlook(env)]);
+  return { ...meta, outlook, records };
 }
 
 /* ---- 価格系列のキャッシュ ---- */

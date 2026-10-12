@@ -115,6 +115,43 @@ tbody tr.click{cursor:pointer}
 .newsitem{padding:6px 12px;border-bottom:1px solid #161d28;font-size:12px}
 .newsitem .src{color:var(--dim);font-size:10.5px}
 
+/* ---- ニュース AI 要約 ---- */
+.brief{padding:10px 12px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(76,201,240,.05),transparent)}
+.brief .lead{font-size:13.5px;font-weight:600;line-height:1.5;margin-bottom:7px}
+.brief .body{font-size:12px;color:var(--text);line-height:1.65}
+.brief .body div{margin-bottom:3px;padding-left:11px;text-indent:-11px}
+.theme{border-left:3px solid var(--line);background:var(--panel2);border-radius:0 5px 5px 0;padding:6px 9px;margin-top:6px}
+.theme.bull{border-left-color:var(--pos)} .theme.bear{border-left-color:var(--neg)} .theme.mixed{border-left-color:var(--warn)}
+.theme .tt{font-size:12px;font-weight:600;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.theme .td{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.55}
+
+/* ---- セクター見通し ---- */
+.ocard{border:1px solid var(--line);border-left-width:3px;border-radius:7px;background:var(--panel2);padding:9px 11px;margin-bottom:8px}
+.ocard.up{border-left-color:var(--pos)}
+.ocard.down{border-left-color:var(--neg)}
+.ocard.flat{border-left-color:var(--warn)}
+.ocard-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ocard-h .nm{font-size:13.5px;font-weight:600}
+.orank{font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.oscore{margin-left:auto;font-family:var(--mono);font-size:19px;font-weight:700;line-height:1}
+.oscore small{font-size:10px;color:var(--dim);font-weight:400;display:block;text-align:right}
+.othesis{font-size:12px;color:var(--text);line-height:1.6;margin-top:6px}
+.ometa{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:10.5px;color:var(--muted);align-items:center}
+.ometa .bar{width:74px;flex:none}
+.ocard details{margin-top:7px;border-top:1px solid var(--line);padding-top:6px}
+.ocard summary{cursor:pointer;color:var(--accent);font-size:11px;list-style:none}
+.ocard summary::-webkit-details-marker{display:none}
+.ocard summary::before{content:"▸ ";}
+.ocard details[open] summary::before{content:"▾ ";}
+.pillar{display:grid;grid-template-columns:minmax(88px,110px) 96px 1fr;gap:8px;align-items:center;font-size:11px;padding:3px 0;border-bottom:1px solid #151b25}
+.pillar .pl{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pillar .pr{color:var(--dim);line-height:1.45;white-space:normal}
+.dbar{position:relative;height:9px;background:#161d28;border-radius:2px}
+.dbar>span{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#2b3648}
+.dbar>i{position:absolute;top:1px;bottom:1px;border-radius:2px}
+.ohint{font-size:11px;color:var(--muted);line-height:1.6;margin-top:6px}
+.ohint b{color:var(--text);font-weight:600}
+
 #modal{position:fixed;inset:0;background:rgba(4,6,10,.82);display:none;z-index:100;overflow:auto;padding:24px;-webkit-overflow-scrolling:touch}
 #modal.on{display:block}
 .sheet{max-width:1280px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:12px}
@@ -206,6 +243,14 @@ tbody tr.click{cursor:pointer}
   table{font-size:12px}
   /* 横スクロール中も銘柄名を見失わないよう先頭列を固定する */
   td:first-child,th:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+
+  /* 柱の内訳: 3列のままだと説明文の欄が 100px 程度になり、
+     1行に 4-5 文字しか入らない。ラベルとバーを 1 段目、説明を 2 段目に折る */
+  .pillar{grid-template-columns:1fr 88px;gap:4px 8px;padding:6px 0}
+  .pillar .pl{white-space:normal}
+  .pillar .pr{grid-column:1 / -1;font-size:11px}
+  .ocard{padding:9px}
+  .oscore{font-size:18px}
 
   .heatgrid{grid-template-columns:1fr;padding:10px;gap:6px}
   .hrow-label{padding:2px 0;font-weight:600;color:var(--text);border-bottom:1px solid var(--line)}
@@ -414,14 +459,116 @@ function viewOverview() {
     ${panelMacro(d.macro)}
   </div>
   <div style="height:12px"></div>
+  ${panelOutlook(d.outlook)}
+  <div style="height:12px"></div>
   ${panelHeatmap(d.sectors)}
   <div style="height:12px"></div>
   <div class="grid cols-main-side">
     ${panelLeaders(d.leaders, d.laggards)}
-    ${panelNews(d.news)}
+    ${panelNews(d.news, d.newsBrief)}
   </div>
   <div style="height:12px"></div>
   ${panelPipeline(d.meta, d.generatedAt)}`;
+}
+
+/* ================================================================== *
+ * セクター見通し (これから上がりそう / 下がりそう)
+ * ================================================================== */
+
+/* 寄与を発散バーに。±0.30 で飽和させる (それ以上は柱1本で全部決まっており、
+   バーの長さを競わせても情報が増えない) */
+function contribBar(c) {
+  if (!isN(c) || c === 0) return `<div class="dbar"><span></span></div>`;
+  const t = Math.max(-1, Math.min(1, c / 0.30));
+  const w = Math.abs(t) * 50;
+  const col = t >= 0 ? "var(--pos)" : "var(--neg)";
+  const style = t >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%`;
+  return `<div class="dbar"><span></span><i style="${style};background:${col}"></i></div>`;
+}
+
+/* .bar は span なので、display を与えないと表セルの中で高さが出ない
+   (flex コンテナの中では勝手にブロック化されるので気付きにくい) */
+function convictionBar(v) {
+  const p = isN(v) ? Math.max(0, Math.min(100, v)) : 0;
+  const col = p >= 60 ? "var(--pos)" : p >= 35 ? "var(--warn)" : "var(--neg)";
+  return `<span class="bar" style="display:inline-block;vertical-align:middle;width:60px"><i style="width:${p}%;background:${col}"></i></span>`;
+}
+
+function outlookCard(r, kind) {
+  const arrow = r.direction === "up" ? "▲" : r.direction === "down" ? "▼" : "▬";
+  const cls = r.direction === "up" ? "up" : r.direction === "down" ? "down" : "flat";
+  const col = r.direction === "up" ? "var(--pos)" : r.direction === "down" ? "var(--neg)" : "var(--warn)";
+  const pillars = (r.pillars || [])
+    .slice()
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution))
+    .map((p) => `<div class="pillar">
+      <div class="pl" title="${esc(p.label)}${p.standardized ? "" : " (横断標準化しない柱)"}">${esc(p.label)}${p.standardized ? "" : '<span class="muted">*</span>'}</div>
+      ${contribBar(p.contribution)}
+      <div class="pr">${esc(p.reading)}</div>
+    </div>`).join("");
+
+  return `<div class="ocard ${cls}">
+    <div class="ocard-h">
+      <span class="orank">#${r.rank}/${r.rankOf}</span>
+      <span class="nm">${esc(r.nameJa)}</span>
+      <span class="tag">${esc(r.region)}</span>
+      ${r.proxySymbol ? `<span class="tag click mono" data-sym="${esc(r.proxySymbol)}" style="cursor:pointer">${esc(r.proxySymbol)}</span>` : ""}
+      <span class="oscore" style="color:${col}">${arrow} ${r.score.toFixed(0)}<small>合成Z ${r.z >= 0 ? "+" : ""}${r.z.toFixed(2)}</small></span>
+    </div>
+    <div class="othesis">${esc(r.thesis)}</div>
+    <div class="ometa">
+      <span>確信度 ${r.conviction}</span>${convictionBar(r.conviction)}
+      <span>柱の一致 ${(r.agreement * 100).toFixed(0)}%</span>
+      <span>材料の充足 ${(r.coverage * 100).toFixed(0)}%</span>
+      ${isN(r.expectedMove1m) ? `<span>1ヶ月想定変動 ±${(r.expectedMove1m * 100).toFixed(1)}%</span>` : ""}
+    </div>
+    <details>
+      <summary>判断の内訳 (13本の柱)</summary>
+      <div style="margin-top:5px">${pillars}</div>
+      ${r.risks && r.risks.length ? `<div class="ohint"><b>${kind === "up" ? "この見立てを壊しうる材料" : "下振れを打ち消しうる材料"}</b>: ${esc((kind === "up" ? r.risks : r.drivers).map((x) => x.split(":")[0]).join(" / "))}</div>` : ""}
+      <div class="ohint"><b>否定条件</b>: ${esc(r.invalidation)}</div>
+      ${r.headlines && r.headlines.length ? `<div class="ohint"><b>関連する見出し</b><br>${r.headlines.map((h) => `・${esc(h)}`).join("<br>")}</div>` : ""}
+      <div class="ohint muted">* が付いた柱は横断標準化していない (地形や過熱度から絶対水準で決まる)。</div>
+    </details>
+  </div>`;
+}
+
+function panelOutlook(o) {
+  if (!o) {
+    return `<div class="panel"><h3>セクター見通し</h3>
+      <div class="pad muted">見通しの算出に必要なセクター数が揃っていません (初回の収集中はここが空になります)。</div></div>`;
+  }
+  const side = (rows, kind, title, hint) => `<div class="panel">
+    <h3>${title} <span class="hint">${hint}</span></h3>
+    <div class="pad" style="padding-bottom:4px">
+      ${rows.length ? rows.map((r) => outlookCard(r, kind)).join("") :
+        `<div class="muted small">${kind === "up" ? "上向き" : "下向き"}のシグナルが出ているセクターがありません。</div>`}
+    </div>
+  </div>`;
+
+  const wsel = (o.weights || []).map((w) =>
+    `<tr><td class="l" style="font-family:var(--sans)">${esc(w.label)}</td><td>${(w.weight * 100).toFixed(1)}%</td>
+     <td class="l" style="font-family:var(--sans);white-space:normal;color:var(--muted)">${esc(w.rationale)}</td></tr>`).join("");
+
+  return `<div class="grid cols-main-side-narrow">
+    ${side(o.bullish || [], "up", "これから上がりそう TOP5", `${esc(o.horizon)} / 相対順位`)}
+    ${side(o.bearish || [], "down", "これから下がりそう TOP5", `${esc(o.horizon)} / 相対順位`)}
+  </div>
+  <div style="height:12px"></div>
+  <div class="panel">
+    <h3>見通しスコアの作り方 <span class="hint">何を根拠にこの順位になったのか</span></h3>
+    <details style="padding:10px 12px">
+      <summary style="cursor:pointer;color:var(--accent);font-size:12px">13本の柱とウェイト、採用理由を見る</summary>
+      <div class="scroll-x" style="margin-top:8px"><table style="font-size:11.5px">
+        <thead><tr><th class="l">柱</th><th>ウェイト</th><th class="l">なぜ先行きの手掛かりになるのか</th></tr></thead>
+        <tbody>${wsel}</tbody>
+      </table></div>
+    </details>
+    <div class="note">${esc(o.method)}<br>
+      <b>score は上昇確率ではない。</b>同じ土俵に並べたときの相対的な有利さを 0-100 に写した順位指標であり、50 が「中立」にあたる。
+      確信度は「柱がどれだけ同じ向きを向いているか × 材料がどれだけ揃っているか × シグナルの強さ」で、低いものは材料が割れている。
+      1ヶ月想定変動は ATR から出した値幅であって、方向の予測ではない。各カードには<b>否定条件</b>を必ず併記している — 外れたことを後から誤魔化さないため。</div>
+  </div>`;
 }
 
 function panelRegime(r) {
@@ -546,14 +693,54 @@ function panelLeaders(top, bottom) {
   </div>`;
 }
 
-function panelNews(news) {
+/* ニュースの AI 要約。生成物と機械集計を見分けられるよう、
+   出所のタグを必ず出す (どちらも同じ見た目で出すと信頼度を測れない) */
+function briefBlock(b) {
+  if (!b) return "";
+  const ai = b.method === "workers-ai";
+  const badge = ai
+    ? `<span class="tag c" title="${esc(b.model || "")}">AI要約</span>`
+    : `<span class="tag" title="AI が使えなかったため、キーワード一致と語彙判定で機械的に組み立てた集計">機械集計</span>`;
+  const themes = (b.themes || []).map((t) => {
+    const cls = t.impact === "bullish" ? "bull" : t.impact === "bearish" ? "bear" : "mixed";
+    const tag = t.impact === "bullish" ? ["追い風", "b"] : t.impact === "bearish" ? ["逆風", "s"] : ["まちまち", "c"];
+    return `<div class="theme ${cls}">
+      <div class="tt">${esc(t.title)} <span class="tag ${tag[1]}">${tag[0]}</span>
+        ${(t.sectors || []).map((s) => `<span class="tag">${esc(sectorName(s))}</span>`).join("")}
+        ${t.headlineCount ? `<span class="muted small">見出し${t.headlineCount}本</span>` : ""}</div>
+      ${t.detail ? `<div class="td">${esc(t.detail)}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  return `<div class="brief">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      ${badge}
+      <span class="muted small">見出し ${b.headlineCount}本 / ${b.sourceCount}媒体 · ${when(b.asOf)}</span>
+    </div>
+    <div class="lead">${esc(b.headline)}</div>
+    <div class="body">${(b.summary || []).map((s) => `<div>・${esc(s)}</div>`).join("")}</div>
+    ${themes}
+    ${(b.watch || []).length ? `<div class="ohint" style="margin-top:8px"><b>次に見る材料</b>: ${(b.watch).map(esc).join(" / ")}</div>` : ""}
+    ${b.degradedReason ? `<div class="small warn" style="margin-top:7px">⚠ ${esc(b.degradedReason)}</div>` : ""}
+  </div>`;
+}
+
+function sectorName(id) {
+  const u = S.universe;
+  const m = u && u.sectors.find((x) => x.id === id);
+  return m ? m.nameJa : id;
+}
+
+function panelNews(news, brief) {
   return `<div class="panel">
-    <h3>ニュース <span class="hint">RSS / センチメント材料</span></h3>
+    <h3>ニュース概況 <span class="hint">いま何がどうなっているか</span></h3>
+    ${briefBlock(brief)}
     <div class="scroll" style="max-height:420px">
       ${(news || []).map((n) => `<div class="newsitem">
         <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a>
         <div class="src">${esc(n.source)} · ${esc(n.pubDate || "")}</div></div>`).join("")}
     </div>
+    <div class="note">要約は見出しと、こちらで計算済みの実測値 (レジーム・市場の幅・セクター騰落) だけを材料に生成している。<b>本文はモデルの生成物なので、投資判断の前に必ず一次情報を確認すること。</b>AI が使えなかった回は「機械集計」タグに切り替わり、キーワード一致と語彙判定の結果だけを表示する。</div>
   </div>`;
 }
 
@@ -611,7 +798,9 @@ function viewSectors() {
     { k: "pctAbove200dma", t: "200日線超", f: (v) => (isN(v) ? v.toFixed(0) + "%" : DASH) },
     { k: "spark", t: "60日", f: (v) => spark(v) },
   ];
-  return `<div class="panel">
+  return `${panelOutlookTable(d.outlook, sel)}
+  <div style="height:12px"></div>
+  <div class="panel">
     <h3>地域 × セクター 一覧
       <select id="secregion" class="hsel">
         <option value="ALL">全地域</option>
@@ -620,6 +809,34 @@ function viewSectors() {
     </h3>
     ${table(rows, cols, { sortKey: "heat", sortDir: "desc" })}
     <div class="note">リターンとテクニカルは<b>代表ETF</b>から、バリュエーション (PER/PBR/ROE等) は<b>構成銘柄の中央値</b>から算出。ETF にはファンダメンタルズが無いため、この 2 つは出所が異なる。中央値を使うのは、1銘柄の極端な倍率で全体が歪むのを避けるため。</div>
+  </div>`;
+}
+
+/* 全セクターの見通し順位。概況の TOP5 に載らなかったセルもここで全部見える */
+function panelOutlookTable(o, regionSel) {
+  if (!o || !o.all || !o.all.length) return "";
+  const rows = regionSel === "ALL" ? o.all : o.all.filter((r) => r.region === regionSel);
+  const dirTag = (v) => v === "up"
+    ? `<span class="tag b">上向き</span>`
+    : v === "down" ? `<span class="tag s">下向き</span>` : `<span class="tag c">中立</span>`;
+  const cols = [
+    { k: "rank", t: "順位", f: (v) => `<span class="muted">${v}</span>` },
+    { k: "nameJa", t: "セクター", l: true, f: (v, r) => `${esc(v)} ${r.proxySymbol ? `<span class="muted small mono">${esc(r.proxySymbol)}</span>` : ""}` },
+    { k: "region", t: "地域", l: true, f: (v) => `<span class="tag">${esc(v)}</span>` },
+    { k: "score", t: "見通し", f: score, title: "0-100。50 が中立。上昇確率ではなく相対順位" },
+    { k: "z", t: "合成Z", f: (v) => (isN(v) ? `<span class="${v > 0 ? "pos" : v < 0 ? "neg" : ""}">${v >= 0 ? "+" : ""}${v.toFixed(2)}</span>` : DASH) },
+    { k: "direction", t: "向き", l: true, f: dirTag },
+    { k: "conviction", t: "確信度", f: (v) => `${score(v)} ${convictionBar(v)}` },
+    { k: "agreement", t: "柱の一致", f: (v) => (isN(v) ? `${(v * 100).toFixed(0)}%` : DASH) },
+    { k: "coverage", t: "材料充足", f: (v) => (isN(v) ? `${(v * 100).toFixed(0)}%` : DASH) },
+    { k: "topDriver", t: "最大の追い風", l: true, f: (v) => (v ? `<span class="pos">${esc(v)}</span>` : DASH) },
+    { k: "topRisk", t: "最大の逆風", l: true, f: (v) => (v ? `<span class="neg">${esc(v)}</span>` : DASH) },
+    { k: "memberCount", t: "銘柄数", f: (v) => v },
+  ];
+  return `<div class="panel">
+    <h3>セクター見通しランキング <span class="hint">${esc(o.horizon)} / 全${o.all.length}セクター</span></h3>
+    ${table(rows, cols, { sortKey: "score", sortDir: "desc" })}
+    <div class="note">概況タブの TOP5 は、この順位表から<b>材料充足 45% 以上</b>のセルだけを抜き出したもの。材料が 2〜3 本しか揃っていないセルが偶然 1 位に来るのを防ぐため。柱ごとの内訳は概況タブのカードで開ける。</div>
   </div>`;
 }
 

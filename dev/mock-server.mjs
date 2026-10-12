@@ -112,6 +112,102 @@ for (let i = 0; i < n; i++)
   for (let j = 0; j < n; j++)
     matrix.push(i === j ? 1 : Math.round((0.75 - Math.abs(i - j) * 0.14) * 100) / 100);
 
+/* ---- ニュース概況の AI 要約 ---- */
+const newsBrief = {
+  asOf: new Date().toISOString(),
+  method: "workers-ai",
+  model: "@cf/meta/llama-3.1-8b-instruct",
+  headline: "AI設備投資の上方修正が半導体を牽引、金利低下期待が下支え",
+  summary: [
+    "半導体各社の四半期見通し上方修正が相次ぎ、AI向けデータセンター需要が想定を上回っている。",
+    "S&P500 は 200日線の上でゴールデンクロス、200日線超えの銘柄比率は 68% と裾野も広い。",
+    "信用スプレッド代理 (HYG−LQD) はプラス圏で、クレジット側からもリスク選好が確認できる。",
+    "一方でエネルギーは原油の上値の重さを反映して1週で下落。素材も中国の需要指標待ちで動きにくい。",
+  ],
+  themes: [
+    { title: "AI設備投資サイクル", detail: "データセンター向け需要が半導体・電力インフラに波及。受注残の積み上がりが確認されている。", impact: "bullish", sectors: ["semis", "tech"], headlineCount: 6 },
+    { title: "金利低下期待", detail: "利下げ観測が続き、長期金利の低下がグロース株と不動産の割引率を押し下げる方向に効いている。", impact: "bullish", sectors: ["tech"], headlineCount: 3 },
+    { title: "原油の上値の重さ", detail: "供給側の増産観測が続き、エネルギー関連の見出しは弱気寄り。", impact: "bearish", sectors: ["energy"], headlineCount: 4 },
+  ],
+  watch: ["主要半導体メーカーの決算", "米CPI", "OPEC+ の生産方針"],
+  headlineCount: 10, sourceCount: 3, degradedReason: null,
+};
+
+/* ---- セクター見通し ---- */
+const PILLAR_DEFS = [
+  ["trend", "絶対トレンド", 0.112, "自分自身の 6〜12 ヶ月リターンは翌 1-3 ヶ月と正の関係を持つ (時系列モメンタム)。"],
+  ["relative", "相対力 (対 地域指数)", 0.135, "業種単位のモメンタムは個別株モメンタムの主要因。セクター選択では最も素直に効く。"],
+  ["accel", "相対力の加速", 0.101, "相対力の水準ではなく変化率。順位が入れ替わる局面を水準が入れ替わる前に拾う。"],
+  ["reversal", "短期リバーサル", 0.056, "1週〜1ヶ月の直近リターンは翌月に反転しやすい。上げ切った直後の飛び乗りを抑える。"],
+  ["breadth", "参加の幅", 0.079, "構成銘柄が広く参加している上昇のほうが続く。"],
+  ["revision", "業績改定ドリフト", 0.112, "アナリスト予想の改定方向は改定後もしばらく同じ向きに効き続ける。"],
+  ["valuation", "バリュエーション", 0.056, "割安さは短期ではほとんど効かないが、長期では効く。"],
+  ["quality", "質・成長", 0.067, "収益性の高さは長期のリターン差を説明する。"],
+  ["risk", "リスク", 0.056, "ボラティリティはクラスタリングする。拡大中のセクターはリスク調整後で不利。"],
+  ["sentiment", "ニュース", 0.045, "AI が読んだ見出しの強弱。ノイズが多いので最軽量。"],
+  ["regime", "レジーム整合", 0.067, "リスクオンではシクリカル、リスクオフではディフェンシブ。"],
+  ["meanrev", "過熱 / 押し目", 0.056, "RSI と 200日線乖離が極端な領域に入ったときだけ効かせる非線形項。"],
+  ["market", "市場の地合い", 0.056, "地域内の相対で作った柱に、その市場自体の強弱を足す。"],
+];
+
+function outlookRow(rank, rankOf, region, sectorId, nameJa, proxy, z) {
+  const dir = z >= 0.25 ? "up" : z <= -0.25 ? "down" : "neutral";
+  const pillars = PILLAR_DEFS.map(([key, label, weight], i) => {
+    const pz = Math.round((z * (1 + Math.sin(i * 1.7)) * 1.1) * 1000) / 1000;
+    return {
+      key, label, weight: weight * 8.9, z: pz,
+      contribution: Math.round(pz * weight * 1000) / 1000,
+      standardized: !["regime", "meanrev", "market"].includes(key),
+      reading: `${label}の観測値は ${pz >= 0 ? "上向き" : "下向き"} (Z ${pz.toFixed(2)})`,
+      inputs: [{ name: "観測値", value: pz, unit: "z" }],
+    };
+  });
+  return {
+    region, sector: sectorId, nameJa, nameEn: sectorId, proxySymbol: proxy, memberCount: 6,
+    z, score: Math.round((50 + (z / 2.5) * 50) * 10) / 10, direction: dir, horizon: "1〜3ヶ月",
+    agreement: 0.78, coverage: 0.86, conviction: Math.round(62 - rank * 3),
+    rank, rankOf, pillars,
+    drivers: pillars.filter((p) => p.contribution > 0).slice(0, 3).map((p) => `${p.label}: ${p.reading}`),
+    risks: pillars.filter((p) => p.contribution < 0).slice(0, 3).map((p) => `${p.label}: ${p.reading}`),
+    thesis: `${nameJa}は 1〜3ヶ月 で${dir === "up" ? "買い" : "売り"}優位 (合成Z ${z >= 0 ? "+" : ""}${z.toFixed(2)})。相対力と業績改定が同じ方向を向いている。`,
+    invalidation: `${proxy} が 200日線 182.40 USD を終値で割るか、RSレシオが 100 を下回ったら見立ては無効。`,
+    expectedMove1m: 0.062, sentiment: null,
+    headlines: ["半導体大手が四半期見通しを上方修正、AI向け需要が想定を上回る"],
+  };
+}
+
+const bullRows = [
+  outlookRow(1, 18, "US", "semis", "半導体", "SMH", 0.94),
+  outlookRow(2, 18, "US", "tech", "情報技術", "XLK", 0.71),
+  outlookRow(3, 18, "JP", "industrials", "資本財", "1626.T", 0.58),
+  outlookRow(4, 18, "US", "financials", "金融", "XLF", 0.44),
+  outlookRow(5, 18, "EU", "defense", "防衛・宇宙", "EXX5.DE", 0.33),
+];
+const bearRows = [
+  outlookRow(18, 18, "US", "energy", "エネルギー", "XLE", -0.88),
+  outlookRow(17, 18, "US", "staples", "生活必需品", "XLP", -0.62),
+  outlookRow(16, 18, "JP", "realestate", "不動産", "1343.T", -0.51),
+  outlookRow(15, 18, "US", "utilities", "公益", "XLU", -0.39),
+  outlookRow(14, 18, "EU", "banks", "銀行", "EXV1.DE", -0.28),
+];
+
+const outlook = {
+  asOf: new Date().toISOString(), horizon: "1〜3ヶ月",
+  bullish: bullRows, bearish: bearRows,
+  all: [...bullRows, ...bearRows]
+    .sort((a, b) => b.z - a.z)
+    .map((r, i) => ({
+      region: r.region, sector: r.sector, nameJa: r.nameJa, proxySymbol: r.proxySymbol,
+      memberCount: r.memberCount, z: r.z, score: r.score, direction: r.direction,
+      conviction: r.conviction, coverage: r.coverage, agreement: r.agreement, rank: i + 1,
+      topDriver: r.z > 0 ? "相対力 (対 地域指数)" : "参加の幅",
+      topRisk: r.z > 0 ? "短期リバーサル" : "相対力 (対 地域指数)",
+    })),
+  method:
+    "13本の柱を地域内で標準化してウェイト加重した合成シグナル。score は上昇確率ではなく、同じ土俵に並べたときの相対順位を 0-100 に写したもの。想定時間軸は 1〜3ヶ月。",
+  weights: PILLAR_DEFS.map(([key, label, weight, rationale]) => ({ key, label, weight, rationale })),
+};
+
 const overview = {
   generatedAt: new Date().toISOString(), version: "1.0.0",
   regime: {
@@ -152,6 +248,7 @@ const overview = {
     link: "https://example.com/", pubDate: "Thu, 06 Aug 2026 07:00:00 GMT",
     source: ["Yahoo Finance", "CNBC Markets", "NHK 経済"][i % 3],
   })),
+  newsBrief, outlook,
   leaders, laggards: { total: 10, returned: 0, fields: [], rows: [], query: {} }, macro,
   meta: {
     universeSize: 135, covered: 118, shard: 3, shards: 8, fetches: 41,
@@ -246,6 +343,8 @@ const peers = [["MSFT", "マイクロソフト"], ["NVDA", "エヌビディア"]
 
 const routes = {
   "/api/overview": overview,
+  "/api/outlook": { generatedAt: overview.generatedAt, outlook },
+  "/api/news": { generatedAt: overview.generatedAt, brief: newsBrief, news: overview.news },
   "/api/universe": { version: "1.0.0", size: 135, regions: REGIONS, sectors: SECTORS, instruments: [] },
   "/api/presets": {
     fields: [],

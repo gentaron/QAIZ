@@ -596,6 +596,157 @@ export interface SentimentResult {
   method: "workers-ai" | "lexicon";
 }
 
+/**
+ * ニュース概況の要約。
+ *
+ * 見出しの羅列は「何が起きたか」しか伝えない。要るのは「何がどうなっていて、
+ * どこに効くのか」なので、テーマ単位に束ねて影響先セクターまで書き下す。
+ *
+ * AI が使えなかった場合も必ず値を返す (method で見分けられるようにする)。
+ * 生成物と機械集計を同じ見た目で出すと、読み手が信頼度を測れなくなる。
+ */
+export interface NewsTheme {
+  title: string;
+  detail: string;
+  impact: "bullish" | "bearish" | "mixed";
+  /** 影響先セクター (SectorId。未知の文字列は捨てる) */
+  sectors: SectorId[];
+  /** このテーマの根拠になった見出し数 */
+  headlineCount: number;
+}
+
+export interface NewsBrief {
+  asOf: string;
+  method: "workers-ai" | "rule-based";
+  /** 生成に使ったモデル (rule-based のときは null) */
+  model: string | null;
+  /** 一行で今の相場 */
+  headline: string;
+  /** 「何がどうなっているか」の本文 (3-5 行) */
+  summary: string[];
+  themes: NewsTheme[];
+  /** 次に効きそうな材料 */
+  watch: string[];
+  /** 要約の入力になった見出し数とフィード数 */
+  headlineCount: number;
+  sourceCount: number;
+  /** AI を使えなかった理由 (使えた場合は null)。黙って劣化させない */
+  degradedReason: string | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* セクター見通し (先行き)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 見通しスコアを構成する「柱」1 本。
+ *
+ * 合成スコアだけ出すのは占いと変わらない。どの観測値が、どの向きに、
+ * どれだけ効いたかを必ず開示する。読み手が柱ごとに反論できる形が最低条件。
+ */
+export interface OutlookPillar {
+  key: string;
+  label: string;
+  /** 設計上のウェイト (合計は正規化される) */
+  weight: number;
+  /**
+   * 方向補正済みのシグナル値 (Zスコア単位, 正 = 上昇寄り)。
+   * データが無くて評価できない柱は null。
+   */
+  z: number | null;
+  /** 合成への寄与 = z × 正規化ウェイト */
+  contribution: number;
+  /** cross-sectional に標準化した柱か (false = 絶対水準で決まる柱) */
+  standardized: boolean;
+  /** 人間が読むための一行 */
+  reading: string;
+  /** この柱に入れた生の観測値 */
+  inputs: { name: string; value: number | null; unit: "%" | "x" | "score" | "z" | "abs" }[];
+}
+
+export interface SectorOutlook {
+  region: RegionId;
+  sector: SectorId;
+  nameJa: string;
+  nameEn: string;
+  proxySymbol: string | null;
+  memberCount: number;
+
+  /** 合成シグナル (Zスコア単位)。正 = 上昇寄り */
+  z: number;
+  /** 0-100 に写したもの。順位の読みやすさ用であって、確率ではない */
+  score: number;
+  direction: "up" | "down" | "neutral";
+  /** 想定する時間軸 */
+  horizon: string;
+
+  /** 柱の符号一致率 [0,1]。低い = 材料が割れている */
+  agreement: number;
+  /** 評価できた柱のウェイト比率 [0,1] */
+  coverage: number;
+  /** 一致率・被覆・シグナルの強さから作る確信度 [0,100] */
+  conviction: number;
+
+  /** ランキング上の順位 (1 = 最も上がりやすい) */
+  rank: number;
+  rankOf: number;
+
+  pillars: OutlookPillar[];
+  /** 押し上げている材料 (寄与の大きい順) */
+  drivers: string[];
+  /** 押し下げている材料 / リスク */
+  risks: string[];
+  /** 一行の論拠 */
+  thesis: string;
+  /** これが起きたら見立ては外れ、と事前に決めておく条件 */
+  invalidation: string;
+  /** ATR から見た 1 ヶ月の想定変動幅 (±, 小数)。方向の予測ではない */
+  expectedMove1m: number | null;
+  sentiment: SentimentResult | null;
+  /** 根拠になった見出し */
+  headlines: string[];
+}
+
+/**
+ * 順位表の 1 行。
+ *
+ * 全セクター分の柱の内訳まで保存すると Durable Object の 1 値あたりの
+ * 上限 (128 KiB) に当たるので、一覧はこの軽い形にし、内訳は上位・下位の
+ * 推薦銘柄にだけ持たせる。
+ */
+export interface SectorOutlookRow {
+  region: RegionId;
+  sector: SectorId;
+  nameJa: string;
+  proxySymbol: string | null;
+  memberCount: number;
+  z: number;
+  score: number;
+  direction: "up" | "down" | "neutral";
+  conviction: number;
+  coverage: number;
+  agreement: number;
+  rank: number;
+  /** 最も効いている柱と、最も逆風の柱 (ラベルのみ) */
+  topDriver: string | null;
+  topRisk: string | null;
+}
+
+export interface OutlookBoard {
+  asOf: string;
+  horizon: string;
+  /** 上がりやすい順の上位 (柱の内訳つき) */
+  bullish: SectorOutlook[];
+  /** 下がりやすい順の上位 (柱の内訳つき) */
+  bearish: SectorOutlook[];
+  /** 全セクターのスコア (順位順、軽量版) */
+  all: SectorOutlookRow[];
+  /** 手法の説明。スコアの意味を取り違えられないように必ず添える */
+  method: string;
+  /** 柱のウェイト定義 */
+  weights: { key: string; label: string; weight: number; rationale: string }[];
+}
+
 /** セクター集計 (地域 × セクター) */
 export interface SectorAggregate {
   region: RegionId;
@@ -641,6 +792,10 @@ export interface Snapshot {
   regime: Regime | null;
   correlation: CorrelationBlock | null;
   news: NewsItem[];
+  /** ニュースの AI 要約 (生成できなければ機械集計版が入る) */
+  newsBrief: NewsBrief | null;
+  /** セクター先行き見通しランキング */
+  outlook: OutlookBoard | null;
   meta: {
     universeSize: number;
     covered: number;

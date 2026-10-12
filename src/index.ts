@@ -10,6 +10,7 @@ import { runPipeline } from "./pipeline.ts";
 import {
   AnalyticsStore,
   loadMeta,
+  loadOutlook,
   loadRecords,
   loadSeries,
 } from "./storage.ts";
@@ -43,7 +44,8 @@ export { AnalyticsStore };
  *   GET  /api/regime                相場レジーム判定
  *   GET  /api/correlation           相関行列・主成分・クラスタ
  *   GET  /api/factors               ファクターランキング
- *   GET  /api/news                  収集済みニュース
+ *   GET  /api/outlook?region=US     セクター先行き見通しランキング
+ *   GET  /api/news                  収集済みニュース + AI 概況要約
  *   GET  /api/pit/status            Point-in-Time ジャーナルの蓄積状況
  *   GET  /api/pit/export?from=&to=  PIT ジャーナルの NDJSON エクスポート (研究ラボ用)
  *   POST /api/refresh?shard=n&full=1  パイプライン手動実行
@@ -221,6 +223,9 @@ async function handleApi(
   const records = needsRecords ? await loadRecords(env) : {};
   const list = Object.values(records);
 
+  const needsOutlook = path === "/api/overview" || path === "/api/outlook";
+  const outlook = needsOutlook ? await loadOutlook(env) : null;
+
   switch (true) {
     case path === "/api/overview": {
       // ダッシュボードの初期描画に必要なものだけを 1 往復で返す。
@@ -255,6 +260,8 @@ async function handleApi(
         rotation: meta.rotation,
         correlation: meta.correlation,
         news: meta.news.slice(0, 24),
+        newsBrief: meta.newsBrief ?? null,
+        outlook,
         leaders: top,
         laggards: bottom,
         macro,
@@ -294,7 +301,34 @@ async function handleApi(
       return json({ generatedAt: meta.generatedAt, correlation: meta.correlation });
 
     case path === "/api/news":
-      return json({ generatedAt: meta.generatedAt, news: meta.news });
+      return json({
+        generatedAt: meta.generatedAt,
+        brief: meta.newsBrief ?? null,
+        news: meta.news,
+      });
+
+    case path === "/api/outlook": {
+      if (!outlook) {
+        return json(
+          { error: "見通しがまだ生成されていない (初回のパイプライン実行待ち)" },
+          404
+        );
+      }
+      const region = url.searchParams.get("region");
+      if (!region) return json({ generatedAt: meta.generatedAt, outlook });
+      // 地域を絞る場合は、その地域の中で順位を振り直す。
+      // 全体順位のまま抜き出すと「1位が無い一覧」になって読めない。
+      const all = outlook.all.filter((r) => r.region === region);
+      return json({
+        generatedAt: meta.generatedAt,
+        outlook: {
+          ...outlook,
+          bullish: outlook.bullish.filter((r) => r.region === region),
+          bearish: outlook.bearish.filter((r) => r.region === region),
+          all: all.map((r, i) => ({ ...r, rank: i + 1 })),
+        },
+      });
+    }
 
     case path === "/api/meta":
       return json({ generatedAt: meta.generatedAt, version: meta.version, meta: meta.meta });
