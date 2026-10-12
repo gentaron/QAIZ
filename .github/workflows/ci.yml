@@ -34,7 +34,7 @@ jobs:
 
       # Node 22.18+ が必要。テストは .ts を直接実行しており、
       # ネイティブの型ストリッピングに依存している。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
