@@ -652,5 +652,11 @@ export interface Snapshot {
     /** 直近の更新にかかった時間 */
     elapsedMs: number;
     errors: string[];
+    /**
+     * Point-in-Time ジャーナルの書き込み状況。
+     * written が 0 のまま続くなら、ファンダメンタルズの取得自体が
+     * 失敗している (= 研究側に渡す PIT データが積み上がっていない)。
+     */
+    pit?: { written: number; pruned: number };
   };
 }

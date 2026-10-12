@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "R001",
+  "title": "日本株における信用取引残高変化の将来超過リターン予測力",
+  "status": "PRE_REGISTERED",
+  "pre_registered_at": "2026-09-10",
+  "_note": "このファイルは結果を見る前に確定させる。結果を見てから編集した場合、その版は事前登録ではなくなるので experiment_id を R001b に変えて EXPERIMENT_LOG.md に両方残す。",
+
+  "hypothesis": {
+    "statement": "信用買残の増加・減少は、将来の株価リターンに対してクロスセクショナルな予測力を持つ可能性がある。",
+    "direction": "UNDECIDED",
+    "_note_direction": "符号を事前に決めない。「買残増加は将来の売り圧力なのでマイナス」も「買残増加は注目度の代理なのでプラス」も、どちらも語れてしまう。事前に符号を決めないことで、どちらに出ても後付けの物語を作れないようにする。",
+    "expected_mechanism": [
+      "信用買残は将来の反対売買 (売り) が確定している需給であり、残高の水準・増加は将来の供給圧力を意味しうる (負の予測)。",
+      "信用買残の増加は個人投資家の注目・資金流入の代理指標であり、短期のモメンタムを持ちうる (正の予測)。",
+      "信用倍率の極端値は需給の歪みで、反転のきっかけになりうる (非線形)。"
+    ],
+    "null_hypothesis": "信用残由来のシグナルは、サイズ・流動性・モメンタム・ボラティリティで説明できる範囲を超える予測力を持たない。"
+  },
+
+  "data": {
+    "margin_source_candidates": [
+      {
+        "name": "JPX 銘柄別信用取引週末残高",
+        "cost": "FREE",
+        "access": "手動ダウンロード (Excel/CSV)",
+        "url": "https://www.jpx.co.jp/markets/statistics-equities/margin/05.html",
+        "verification": "UNVERIFIED",
+        "_note_verification": "本セッションのネットワークからは jpx.co.jp に到達できず、列定義・アーカイブ期間・ファイル形式を一次情報で確認できていない。実装は「取得したファイルの列を検証してから使う」形にしてあり、想像した列名では動かない。"
+      },
+      {
+        "name": "J-Quants API /markets/weekly_margin_interest",
+        "cost": "FREE_PLAN_UNKNOWN",
+        "access": "API",
+        "verification": "UNVERIFIED",
+        "_note_verification": "Free プランでこのエンドポイントが使えるかを一次情報で確認できていない。ラボは起動時に実際に叩いて可否を記録する (capability probe) 方式にしてあり、使えると仮定して設計しない。"
+      }
+    ],
+    "price_source": "J-Quants /prices/daily_quotes、無ければ Stooq 日次 (配当調整なしの注記つき)",
+    "frequency": "weekly_record_daily_signal",
+    "_note_frequency": "信用残は週次 (原則、金曜申込日付) の観測。シグナルは日次で持てるが、原系列が週次である事実は結果の自由度の議論 (実効サンプル数) に必ず反映させる。"
+  },
+
+  "availability": {
+    "_note": "**この節が R001 の生命線**。record_date を available_at と取り違えた瞬間、この研究は全部無効になる。",
+    "record_date_convention": "friday_application_date",
+    "publication_lag_business_days": 2,
+    "publication_time_jst": "16:30",
+    "verification": "UNVERIFIED",
+    "_note_verification": "「第2営業日 16:30 頃公表」は検索結果の二次情報。公式の公表スケジュールページに到達できていない。ユーザーが一次情報で確認するまで UNVERIFIED のまま扱う。",
+    "conservative_extra_lag_days": 1,
+    "_note_conservative": "公表時刻 16:30 は東証の大引け (15:30) より後。つまり公表当日の終値では売買できない。翌営業日の寄りが最速。さらに保守側に 1 日足して、公表日+1 の「引け」を最速の執行時点とする。これが効きすぎるなら感度分析で外して比較する (signal_delay ストレスと同じ軸)。"
+  },
+
+  "signals": {
+    "_note": "70 で指定された 7 本。各シグナルは lookback 3 通り × ターゲット 4 通りで評価される。",
+    "definitions": [
+      "margin_long_chg",
+      "margin_short_chg",
+      "margin_ratio",
+      "margin_long_to_adv",
+      "margin_short_to_adv",
+      "margin_long_to_mktcap",
+      "margin_short_to_mktcap"
+    ],
+    "lookbacks_days": [5, 20, 60],
+    "_note_lookback": "原系列が週次なので、5日 ≒ 1週、20日 ≒ 4週、60日 ≒ 12週。日数で書いてあるが実体は「直近何本の週次観測との差か」であり、実装は営業日カレンダー経由で解決する。"
+  },
+
+  "targets": {
+    "horizons_days": [1, 5, 20, 60],
+    "variants": ["raw", "market_excess", "sector_excess"],
+    "_note": "raw だけで判断しない。日本株の日次リターンは市場成分が支配的で、raw の IC は「その日市場が上がったか」に引きずられる。"
+  },
+
+  "universe": "configs/universe.jp.json#jp_liquid_prime",
+
+  "evaluation": {
+    "primary_metric": "spearman_rank_ic",
+    "secondary_metrics": ["icir", "q5_minus_q1_return", "sharpe_after_cost", "turnover", "hit_rate"],
+    "quantiles": 5,
+    "neutralization": ["none", "sector", "sector+size", "sector+size+beta"],
+    "_note_neutral": "中立化前後を必ず並べる。中立化で消えるなら、それは業種ローテーションかサイズファクターであって信用残の効果ではない。"
+  },
+
+  "periods": {
+    "research_start": "2015-01-01",
+    "research_end": "2022-12-31",
+    "final_oos_start": "2023-01-01",
+    "final_oos_end": null,
+    "_note_oos": "final_oos は 1 回しか見ない。見た時点で EXPERIMENT_LOG.md に「見た」と記録し、以後この期間は OOS ではなくなる。research_end 以前だけでモデル・パラメータ・特徴量の選択を完結させる。",
+    "_note_start": "2015 開始は、J-Quants Free プランの 2 年制約とは別に「データが揃えば」という前提。実データが 2 年しか無い構成では、期間分割そのものが成立しないことを結果に明記する (下記 known_blockers)。"
+  },
+
+  "cost_assumption": "configs/costs.jp.json#jp_retail_default",
+
+  "multiple_testing": {
+    "_note": "事前に数えておく。走らせてから数えると必ず過少申告になる。",
+    "signals": 7,
+    "lookbacks": 3,
+    "horizons": 4,
+    "target_variants": 3,
+    "neutralizations": 4,
+    "planned_tests": 1008,
+    "_note_planned": "7 × 3 × 4 × 3 × 4 = 1008。この数で有意水準を調整しないと、5% 水準なら偶然だけで 50 本が「有意」になる。Deflated Sharpe Ratio の試行回数にもこの値を渡す。"
+  },
+
+  "known_blockers": [
+    "信用残データの実ファイル (列定義・期間) を一次情報で確認できていない。確認するまで R001 は実行しても結果を解釈しない。",
+    "J-Quants Free プランは 12 週間の配信遅延がある (二次情報)。研究には支障ないが、この構成のままでは実運用シグナルは作れない。",
+    "Free プランのデータ期間が 2 年の場合、research / final_oos の期間分割が成立しない。その場合 R001 は 'insufficient evidence' で確定する。"
+  ]
+}

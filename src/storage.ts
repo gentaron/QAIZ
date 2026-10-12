@@ -110,6 +110,10 @@ export async function kvPut(env: Env, key: string, value: unknown): Promise<void
   await rpc(env, { op: "put", key, value });
 }
 
+export async function kvDelete(env: Env, key: string): Promise<void> {
+  await rpc(env, { op: "delete", key });
+}
+
 export async function kvList<T>(env: Env, prefix: string): Promise<Record<string, T>> {
   const { values } = await rpc<{ values: Record<string, T> }>(env, { op: "list", prefix });
   return values ?? {};

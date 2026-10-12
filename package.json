@@ -11,7 +11,10 @@
     "types": "wrangler types",
     "tail": "wrangler tail",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "export:shared": "node scripts/export-shared.ts",
+    "lab:test": "cd lab && python -m pytest -q",
+    "lab:doctor": "cd lab && python -m qaiz_lab.cli doctor"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260730.1",

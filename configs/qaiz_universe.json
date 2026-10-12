@@ -1,0 +1,1498 @@
+{
+  "_generated_by": "npm run export:shared (scripts/export-shared.ts)",
+  "_note": "手で編集しない。src/config/universe.ts を編集して再生成する。",
+  "version": "1.0.0",
+  "size": 135,
+  "regions": {
+    "US": {
+      "nameJa": "米国",
+      "benchmark": "^GSPC"
+    },
+    "JP": {
+      "nameJa": "日本",
+      "benchmark": "^N225"
+    },
+    "EU": {
+      "nameJa": "欧州",
+      "benchmark": "^STOXX50E"
+    },
+    "UK": {
+      "nameJa": "英国",
+      "benchmark": "^FTSE"
+    },
+    "CN": {
+      "nameJa": "中国本土",
+      "benchmark": "000001.SS"
+    },
+    "HK": {
+      "nameJa": "香港",
+      "benchmark": "^HSI"
+    },
+    "IN": {
+      "nameJa": "インド",
+      "benchmark": "^BSESN"
+    },
+    "KR": {
+      "nameJa": "韓国",
+      "benchmark": "^KS11"
+    },
+    "TW": {
+      "nameJa": "台湾",
+      "benchmark": "^TWII"
+    },
+    "AU": {
+      "nameJa": "豪州",
+      "benchmark": "^AXJO"
+    },
+    "CA": {
+      "nameJa": "カナダ",
+      "benchmark": "^GSPTSE"
+    },
+    "BR": {
+      "nameJa": "ブラジル",
+      "benchmark": "^BVSP"
+    },
+    "EM": {
+      "nameJa": "新興国",
+      "benchmark": "EEM"
+    },
+    "GLOBAL": {
+      "nameJa": "グローバル",
+      "benchmark": "ACWI"
+    }
+  },
+  "sectors": {
+    "tech": {
+      "nameJa": "情報技術",
+      "nameEn": "Information Technology"
+    },
+    "semis": {
+      "nameJa": "半導体",
+      "nameEn": "Semiconductors"
+    },
+    "software": {
+      "nameJa": "ソフトウェア",
+      "nameEn": "Software"
+    },
+    "communication": {
+      "nameJa": "通信サービス",
+      "nameEn": "Communication Services"
+    },
+    "discretionary": {
+      "nameJa": "一般消費財",
+      "nameEn": "Consumer Discretionary"
+    },
+    "staples": {
+      "nameJa": "生活必需品",
+      "nameEn": "Consumer Staples"
+    },
+    "energy": {
+      "nameJa": "エネルギー",
+      "nameEn": "Energy"
+    },
+    "financials": {
+      "nameJa": "金融",
+      "nameEn": "Financials"
+    },
+    "banks": {
+      "nameJa": "銀行",
+      "nameEn": "Banks"
+    },
+    "health": {
+      "nameJa": "ヘルスケア",
+      "nameEn": "Health Care"
+    },
+    "biotech": {
+      "nameJa": "バイオテク",
+      "nameEn": "Biotechnology"
+    },
+    "industrials": {
+      "nameJa": "資本財",
+      "nameEn": "Industrials"
+    },
+    "defense": {
+      "nameJa": "防衛・宇宙",
+      "nameEn": "Aerospace & Defense"
+    },
+    "materials": {
+      "nameJa": "素材",
+      "nameEn": "Materials"
+    },
+    "utilities": {
+      "nameJa": "公益",
+      "nameEn": "Utilities"
+    },
+    "realestate": {
+      "nameJa": "不動産",
+      "nameEn": "Real Estate"
+    },
+    "gold": {
+      "nameJa": "金・貴金属",
+      "nameEn": "Gold & Precious Metals"
+    },
+    "crypto": {
+      "nameJa": "暗号資産",
+      "nameEn": "Digital Assets"
+    },
+    "broad": {
+      "nameJa": "市場全体",
+      "nameEn": "Broad Market"
+    },
+    "macro": {
+      "nameJa": "マクロ",
+      "nameEn": "Macro"
+    }
+  },
+  "instruments": [
+    {
+      "symbol": "^GSPC",
+      "name": "S&P 500",
+      "nameJa": "S&P 500",
+      "region": "US",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^IXIC",
+      "name": "NASDAQ Composite",
+      "nameJa": "NASDAQ総合",
+      "region": "US",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^RUT",
+      "name": "Russell 2000",
+      "nameJa": "ラッセル2000",
+      "region": "US",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^N225",
+      "name": "Nikkei 225",
+      "nameJa": "日経平均",
+      "region": "JP",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "^TOPX",
+      "name": "TOPIX",
+      "nameJa": "TOPIX",
+      "region": "JP",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "^STOXX50E",
+      "name": "EURO STOXX 50",
+      "nameJa": "ユーロ・ストックス50",
+      "region": "EU",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "^GDAXI",
+      "name": "DAX",
+      "nameJa": "DAX",
+      "region": "EU",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "^FTSE",
+      "name": "FTSE 100",
+      "nameJa": "FTSE 100",
+      "region": "UK",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "GBP"
+    },
+    {
+      "symbol": "^HSI",
+      "name": "Hang Seng",
+      "nameJa": "ハンセン",
+      "region": "HK",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "HKD"
+    },
+    {
+      "symbol": "000001.SS",
+      "name": "Shanghai Composite",
+      "nameJa": "上海総合",
+      "region": "CN",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "CNY"
+    },
+    {
+      "symbol": "^BSESN",
+      "name": "SENSEX",
+      "nameJa": "SENSEX",
+      "region": "IN",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "INR"
+    },
+    {
+      "symbol": "^KS11",
+      "name": "KOSPI",
+      "nameJa": "KOSPI",
+      "region": "KR",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "KRW"
+    },
+    {
+      "symbol": "^TWII",
+      "name": "TAIEX",
+      "nameJa": "台湾加権",
+      "region": "TW",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "TWD"
+    },
+    {
+      "symbol": "^AXJO",
+      "name": "S&P/ASX 200",
+      "nameJa": "ASX 200",
+      "region": "AU",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "AUD"
+    },
+    {
+      "symbol": "^GSPTSE",
+      "name": "S&P/TSX",
+      "nameJa": "TSX総合",
+      "region": "CA",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "CAD"
+    },
+    {
+      "symbol": "^BVSP",
+      "name": "Bovespa",
+      "nameJa": "ボベスパ",
+      "region": "BR",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "index",
+      "currency": "BRL"
+    },
+    {
+      "symbol": "ACWI",
+      "name": "MSCI ACWI ETF",
+      "nameJa": "全世界株",
+      "region": "GLOBAL",
+      "sector": "broad",
+      "role": "benchmark",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^VIX",
+      "name": "CBOE Volatility Index",
+      "nameJa": "VIX恐怖指数",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "index",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^TNX",
+      "name": "US 10Y Treasury Yield",
+      "nameJa": "米10年金利",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "rate",
+      "currency": "USD"
+    },
+    {
+      "symbol": "^FVX",
+      "name": "US 5Y Treasury Yield",
+      "nameJa": "米5年金利",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "rate",
+      "currency": "USD"
+    },
+    {
+      "symbol": "DX-Y.NYB",
+      "name": "US Dollar Index",
+      "nameJa": "ドル指数",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "fx",
+      "currency": "USD"
+    },
+    {
+      "symbol": "CL=F",
+      "name": "WTI Crude Oil",
+      "nameJa": "WTI原油",
+      "region": "GLOBAL",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "commodity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "GC=F",
+      "name": "Gold Futures",
+      "nameJa": "金先物",
+      "region": "GLOBAL",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "commodity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "HG=F",
+      "name": "Copper Futures",
+      "nameJa": "銅先物",
+      "region": "GLOBAL",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "commodity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "TLT",
+      "name": "iShares 20+ Yr Treasury",
+      "nameJa": "米長期国債ETF",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "HYG",
+      "name": "iShares High Yield Corp",
+      "nameJa": "ハイイールド債",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "LQD",
+      "name": "iShares Investment Grade",
+      "nameJa": "投資適格社債",
+      "region": "US",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "BTC-USD",
+      "name": "Bitcoin",
+      "nameJa": "ビットコイン",
+      "region": "GLOBAL",
+      "sector": "crypto",
+      "role": "sector-proxy",
+      "assetClass": "crypto",
+      "currency": "USD"
+    },
+    {
+      "symbol": "USDJPY=X",
+      "name": "USD/JPY",
+      "nameJa": "ドル円",
+      "region": "JP",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "fx",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "EURUSD=X",
+      "name": "EUR/USD",
+      "nameJa": "ユーロドル",
+      "region": "EU",
+      "sector": "macro",
+      "role": "macro",
+      "assetClass": "fx",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLK",
+      "name": "Technology Select Sector SPDR",
+      "nameJa": "米国 情報技術",
+      "region": "US",
+      "sector": "tech",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "SMH",
+      "name": "VanEck Semiconductor ETF",
+      "nameJa": "米国 半導体",
+      "region": "US",
+      "sector": "semis",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "IGV",
+      "name": "iShares Expanded Tech-Software",
+      "nameJa": "米国 ソフトウェア",
+      "region": "US",
+      "sector": "software",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLC",
+      "name": "Communication Services SPDR",
+      "nameJa": "米国 通信サービス",
+      "region": "US",
+      "sector": "communication",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLY",
+      "name": "Consumer Discretionary SPDR",
+      "nameJa": "米国 一般消費財",
+      "region": "US",
+      "sector": "discretionary",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLP",
+      "name": "Consumer Staples SPDR",
+      "nameJa": "米国 生活必需品",
+      "region": "US",
+      "sector": "staples",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLE",
+      "name": "Energy Select Sector SPDR",
+      "nameJa": "米国 エネルギー",
+      "region": "US",
+      "sector": "energy",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLF",
+      "name": "Financial Select Sector SPDR",
+      "nameJa": "米国 金融",
+      "region": "US",
+      "sector": "financials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "KBE",
+      "name": "SPDR S&P Bank ETF",
+      "nameJa": "米国 銀行",
+      "region": "US",
+      "sector": "banks",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLV",
+      "name": "Health Care Select Sector SPDR",
+      "nameJa": "米国 ヘルスケア",
+      "region": "US",
+      "sector": "health",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XBI",
+      "name": "SPDR S&P Biotech ETF",
+      "nameJa": "米国 バイオテク",
+      "region": "US",
+      "sector": "biotech",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLI",
+      "name": "Industrial Select Sector SPDR",
+      "nameJa": "米国 資本財",
+      "region": "US",
+      "sector": "industrials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "ITA",
+      "name": "iShares Aerospace & Defense",
+      "nameJa": "米国 防衛・宇宙",
+      "region": "US",
+      "sector": "defense",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLB",
+      "name": "Materials Select Sector SPDR",
+      "nameJa": "米国 素材",
+      "region": "US",
+      "sector": "materials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLU",
+      "name": "Utilities Select Sector SPDR",
+      "nameJa": "米国 公益",
+      "region": "US",
+      "sector": "utilities",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XLRE",
+      "name": "Real Estate Select Sector SPDR",
+      "nameJa": "米国 不動産",
+      "region": "US",
+      "sector": "realestate",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "GLD",
+      "name": "SPDR Gold Shares",
+      "nameJa": "金 (ゴールド)",
+      "region": "US",
+      "sector": "gold",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AAPL",
+      "name": "Apple",
+      "nameJa": "アップル",
+      "region": "US",
+      "sector": "tech",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft",
+      "nameJa": "マイクロソフト",
+      "region": "US",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA",
+      "nameJa": "エヌビディア",
+      "region": "US",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AVGO",
+      "name": "Broadcom",
+      "nameJa": "ブロードコム",
+      "region": "US",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AMD",
+      "name": "Advanced Micro Devices",
+      "nameJa": "AMD",
+      "region": "US",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "MU",
+      "name": "Micron Technology",
+      "nameJa": "マイクロン",
+      "region": "US",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "ORCL",
+      "name": "Oracle",
+      "nameJa": "オラクル",
+      "region": "US",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "CRM",
+      "name": "Salesforce",
+      "nameJa": "セールスフォース",
+      "region": "US",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "ADBE",
+      "name": "Adobe",
+      "nameJa": "アドビ",
+      "region": "US",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "GOOGL",
+      "name": "Alphabet",
+      "nameJa": "アルファベット",
+      "region": "US",
+      "sector": "communication",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "META",
+      "name": "Meta Platforms",
+      "nameJa": "メタ",
+      "region": "US",
+      "sector": "communication",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "NFLX",
+      "name": "Netflix",
+      "nameJa": "ネットフリックス",
+      "region": "US",
+      "sector": "communication",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AMZN",
+      "name": "Amazon.com",
+      "nameJa": "アマゾン",
+      "region": "US",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "TSLA",
+      "name": "Tesla",
+      "nameJa": "テスラ",
+      "region": "US",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "HD",
+      "name": "Home Depot",
+      "nameJa": "ホームデポ",
+      "region": "US",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "PG",
+      "name": "Procter & Gamble",
+      "nameJa": "P&G",
+      "region": "US",
+      "sector": "staples",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "KO",
+      "name": "Coca-Cola",
+      "nameJa": "コカ・コーラ",
+      "region": "US",
+      "sector": "staples",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "COST",
+      "name": "Costco",
+      "nameJa": "コストコ",
+      "region": "US",
+      "sector": "staples",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "XOM",
+      "name": "Exxon Mobil",
+      "nameJa": "エクソンモービル",
+      "region": "US",
+      "sector": "energy",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "CVX",
+      "name": "Chevron",
+      "nameJa": "シェブロン",
+      "region": "US",
+      "sector": "energy",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "BRK-B",
+      "name": "Berkshire Hathaway",
+      "nameJa": "バークシャー",
+      "region": "US",
+      "sector": "financials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "JPM",
+      "name": "JPMorgan Chase",
+      "nameJa": "JPモルガン",
+      "region": "US",
+      "sector": "banks",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "BAC",
+      "name": "Bank of America",
+      "nameJa": "バンカメ",
+      "region": "US",
+      "sector": "banks",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "V",
+      "name": "Visa",
+      "nameJa": "ビザ",
+      "region": "US",
+      "sector": "financials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "LLY",
+      "name": "Eli Lilly",
+      "nameJa": "イーライリリー",
+      "region": "US",
+      "sector": "health",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "UNH",
+      "name": "UnitedHealth",
+      "nameJa": "ユナイテッドヘルス",
+      "region": "US",
+      "sector": "health",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "JNJ",
+      "name": "Johnson & Johnson",
+      "nameJa": "J&J",
+      "region": "US",
+      "sector": "health",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AMGN",
+      "name": "Amgen",
+      "nameJa": "アムジェン",
+      "region": "US",
+      "sector": "biotech",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "CAT",
+      "name": "Caterpillar",
+      "nameJa": "キャタピラー",
+      "region": "US",
+      "sector": "industrials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "GE",
+      "name": "GE Aerospace",
+      "nameJa": "GEエアロスペース",
+      "region": "US",
+      "sector": "defense",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "RTX",
+      "name": "RTX Corp",
+      "nameJa": "RTX",
+      "region": "US",
+      "sector": "defense",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "LIN",
+      "name": "Linde",
+      "nameJa": "リンデ",
+      "region": "US",
+      "sector": "materials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "FCX",
+      "name": "Freeport-McMoRan",
+      "nameJa": "フリーポート",
+      "region": "US",
+      "sector": "materials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "NEE",
+      "name": "NextEra Energy",
+      "nameJa": "ネクステラ",
+      "region": "US",
+      "sector": "utilities",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "PLD",
+      "name": "Prologis",
+      "nameJa": "プロロジス",
+      "region": "US",
+      "sector": "realestate",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "USD"
+    },
+    {
+      "symbol": "1306.T",
+      "name": "NEXT FUNDS TOPIX ETF",
+      "nameJa": "TOPIX連動",
+      "region": "JP",
+      "sector": "broad",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1615.T",
+      "name": "NEXT FUNDS 銀行業",
+      "nameJa": "日本 銀行",
+      "region": "JP",
+      "sector": "banks",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1626.T",
+      "name": "NEXT FUNDS 情報通信・サービス",
+      "nameJa": "日本 情報通信",
+      "region": "JP",
+      "sector": "tech",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1622.T",
+      "name": "NEXT FUNDS 自動車・輸送機",
+      "nameJa": "日本 自動車",
+      "region": "JP",
+      "sector": "discretionary",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1625.T",
+      "name": "NEXT FUNDS 電機・精密",
+      "nameJa": "日本 電機・精密",
+      "region": "JP",
+      "sector": "semis",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1617.T",
+      "name": "NEXT FUNDS 食品",
+      "nameJa": "日本 食品",
+      "region": "JP",
+      "sector": "staples",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1621.T",
+      "name": "NEXT FUNDS 医薬品",
+      "nameJa": "日本 医薬品",
+      "region": "JP",
+      "sector": "health",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1618.T",
+      "name": "NEXT FUNDS エネルギー資源",
+      "nameJa": "日本 エネルギー",
+      "region": "JP",
+      "sector": "energy",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1620.T",
+      "name": "NEXT FUNDS 素材・化学",
+      "nameJa": "日本 素材・化学",
+      "region": "JP",
+      "sector": "materials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1628.T",
+      "name": "NEXT FUNDS 不動産",
+      "nameJa": "日本 不動産",
+      "region": "JP",
+      "sector": "realestate",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1627.T",
+      "name": "NEXT FUNDS 電力・ガス",
+      "nameJa": "日本 電力・ガス",
+      "region": "JP",
+      "sector": "utilities",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "1624.T",
+      "name": "NEXT FUNDS 機械",
+      "nameJa": "日本 機械",
+      "region": "JP",
+      "sector": "industrials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "7203.T",
+      "name": "Toyota Motor",
+      "nameJa": "トヨタ自動車",
+      "region": "JP",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "6758.T",
+      "name": "Sony Group",
+      "nameJa": "ソニーグループ",
+      "region": "JP",
+      "sector": "tech",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "8306.T",
+      "name": "Mitsubishi UFJ",
+      "nameJa": "三菱UFJ",
+      "region": "JP",
+      "sector": "banks",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "6861.T",
+      "name": "Keyence",
+      "nameJa": "キーエンス",
+      "region": "JP",
+      "sector": "industrials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "8035.T",
+      "name": "Tokyo Electron",
+      "nameJa": "東京エレクトロン",
+      "region": "JP",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "9984.T",
+      "name": "SoftBank Group",
+      "nameJa": "ソフトバンクG",
+      "region": "JP",
+      "sector": "tech",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "6501.T",
+      "name": "Hitachi",
+      "nameJa": "日立製作所",
+      "region": "JP",
+      "sector": "industrials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "4063.T",
+      "name": "Shin-Etsu Chemical",
+      "nameJa": "信越化学",
+      "region": "JP",
+      "sector": "materials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "9432.T",
+      "name": "NTT",
+      "nameJa": "NTT",
+      "region": "JP",
+      "sector": "communication",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "8058.T",
+      "name": "Mitsubishi Corp",
+      "nameJa": "三菱商事",
+      "region": "JP",
+      "sector": "industrials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "4502.T",
+      "name": "Takeda Pharmaceutical",
+      "nameJa": "武田薬品",
+      "region": "JP",
+      "sector": "health",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "8766.T",
+      "name": "Tokio Marine",
+      "nameJa": "東京海上",
+      "region": "JP",
+      "sector": "financials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "6098.T",
+      "name": "Recruit Holdings",
+      "nameJa": "リクルート",
+      "region": "JP",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "7974.T",
+      "name": "Nintendo",
+      "nameJa": "任天堂",
+      "region": "JP",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "JPY"
+    },
+    {
+      "symbol": "EXV1.DE",
+      "name": "iShares STOXX Europe 600 Banks",
+      "nameJa": "欧州 銀行",
+      "region": "EU",
+      "sector": "banks",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "EXV3.DE",
+      "name": "iShares STOXX Europe 600 Technology",
+      "nameJa": "欧州 テクノロジー",
+      "region": "EU",
+      "sector": "tech",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "EXV4.DE",
+      "name": "iShares STOXX Europe 600 Health Care",
+      "nameJa": "欧州 ヘルスケア",
+      "region": "EU",
+      "sector": "health",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "EXH1.DE",
+      "name": "iShares STOXX Europe 600 Oil & Gas",
+      "nameJa": "欧州 石油・ガス",
+      "region": "EU",
+      "sector": "energy",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "EXV6.DE",
+      "name": "iShares STOXX Europe 600 Industrials",
+      "nameJa": "欧州 資本財",
+      "region": "EU",
+      "sector": "industrials",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "EXH3.DE",
+      "name": "iShares STOXX Europe 600 Utilities",
+      "nameJa": "欧州 公益",
+      "region": "EU",
+      "sector": "utilities",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "ASML.AS",
+      "name": "ASML Holding",
+      "nameJa": "ASML",
+      "region": "EU",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "SAP.DE",
+      "name": "SAP",
+      "nameJa": "SAP",
+      "region": "EU",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "SIE.DE",
+      "name": "Siemens",
+      "nameJa": "シーメンス",
+      "region": "EU",
+      "sector": "industrials",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "MC.PA",
+      "name": "LVMH",
+      "nameJa": "LVMH",
+      "region": "EU",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "AIR.PA",
+      "name": "Airbus",
+      "nameJa": "エアバス",
+      "region": "EU",
+      "sector": "defense",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "OR.PA",
+      "name": "L'Oreal",
+      "nameJa": "ロレアル",
+      "region": "EU",
+      "sector": "staples",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "EUR"
+    },
+    {
+      "symbol": "AZN.L",
+      "name": "AstraZeneca",
+      "nameJa": "アストラゼネカ",
+      "region": "UK",
+      "sector": "health",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "GBP"
+    },
+    {
+      "symbol": "SHEL.L",
+      "name": "Shell",
+      "nameJa": "シェル",
+      "region": "UK",
+      "sector": "energy",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "GBP"
+    },
+    {
+      "symbol": "HSBA.L",
+      "name": "HSBC Holdings",
+      "nameJa": "HSBC",
+      "region": "UK",
+      "sector": "banks",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "GBP"
+    },
+    {
+      "symbol": "ULVR.L",
+      "name": "Unilever",
+      "nameJa": "ユニリーバ",
+      "region": "UK",
+      "sector": "staples",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "GBP"
+    },
+    {
+      "symbol": "2330.TW",
+      "name": "TSMC",
+      "nameJa": "TSMC",
+      "region": "TW",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "TWD"
+    },
+    {
+      "symbol": "005930.KS",
+      "name": "Samsung Electronics",
+      "nameJa": "サムスン電子",
+      "region": "KR",
+      "sector": "semis",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "KRW"
+    },
+    {
+      "symbol": "0700.HK",
+      "name": "Tencent Holdings",
+      "nameJa": "テンセント",
+      "region": "HK",
+      "sector": "communication",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "HKD"
+    },
+    {
+      "symbol": "9988.HK",
+      "name": "Alibaba Group",
+      "nameJa": "アリババ",
+      "region": "HK",
+      "sector": "discretionary",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "HKD"
+    },
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "nameJa": "リライアンス",
+      "region": "IN",
+      "sector": "energy",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "INR"
+    },
+    {
+      "symbol": "INFY.NS",
+      "name": "Infosys",
+      "nameJa": "インフォシス",
+      "region": "IN",
+      "sector": "software",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "INR"
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "nameJa": "HDFC銀行",
+      "region": "IN",
+      "sector": "banks",
+      "role": "constituent",
+      "assetClass": "equity",
+      "currency": "INR"
+    },
+    {
+      "symbol": "EEM",
+      "name": "iShares MSCI Emerging Markets",
+      "nameJa": "新興国株",
+      "region": "EM",
+      "sector": "broad",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "EWZ",
+      "name": "iShares MSCI Brazil",
+      "nameJa": "ブラジル株",
+      "region": "BR",
+      "sector": "broad",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "EWA",
+      "name": "iShares MSCI Australia",
+      "nameJa": "豪州株",
+      "region": "AU",
+      "sector": "broad",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    },
+    {
+      "symbol": "EWC",
+      "name": "iShares MSCI Canada",
+      "nameJa": "カナダ株",
+      "region": "CA",
+      "sector": "broad",
+      "role": "sector-proxy",
+      "assetClass": "etf",
+      "currency": "USD"
+    }
+  ]
+}

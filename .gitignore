@@ -8,3 +8,22 @@ __pycache__/
 .venv/
 .DS_Store
 worker-configuration.d.ts
+
+# --- 研究ラボ ---
+# 取得データと中間生成物。再取得・再生成できるものはコミットしない。
+# ただし data/point_in_time/ の PIT アーカイブだけは例外で、
+# 消すと二度と再構成できない (下記の否定パターンで残す)。
+data/raw/**
+data/normalized/**
+data/features/**
+data/cache/**
+!data/**/.gitkeep
+
+lab/*.egg-info/
+lab/build/
+.pytest_cache/
+.ruff_cache/
+
+# 研究結果は原則コミットする (再現性の記録なので)。
+# 動作確認で回した合成データの実行結果だけは除く。
+research/experiments/*_synthetic_*.json
