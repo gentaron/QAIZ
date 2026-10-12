@@ -12,11 +12,24 @@ export const UA =
 
 export class FetchBudget {
   private used = 0;
+  private reservedUsed = 0;
   readonly limit: number;
+  /**
+   * 後段の処理のために取り置く枠。
+   *
+   * パイプラインは「ニュース → 価格 → ファンダ → AI 要約」の順に走るが、
+   * 価格取得は銘柄数だけ際限なく食えるので、素直に先着順にすると
+   * AI 呼び出しが毎回必ず予算切れになる (= 概況の要約が一生出ない)。
+   * 取り置き分は takeReserved からしか使えないようにして、後段が
+   * 確実に自分の枠を持てるようにする。使い切らなかった取り置きは
+   * 誰も使わないまま余るが、順序依存で機能が消えるよりはるかにましである。
+   */
+  readonly reserved: number;
   readonly skipped: string[] = [];
 
-  constructor(limit: number) {
+  constructor(limit: number, reserved = 0) {
     this.limit = Math.max(1, limit);
+    this.reserved = Math.max(0, Math.min(reserved, this.limit - 1));
   }
 
   get spent(): number {
@@ -27,13 +40,29 @@ export class FetchBudget {
     return Math.max(0, this.limit - this.used);
   }
 
+  /** 取り置きを侵さない範囲の上限 */
+  private get openLimit(): number {
+    return this.limit - Math.max(0, this.reserved - this.reservedUsed);
+  }
+
   /** 予算があれば消費して true。無ければ理由を記録して false */
   take(label: string, cost = 1): boolean {
+    if (this.used + cost > this.openLimit) {
+      if (this.skipped.length < 40) this.skipped.push(label);
+      return false;
+    }
+    this.used += cost;
+    return true;
+  }
+
+  /** 取り置き枠を優先的に使う (使い切ったら通常枠と同じ扱いになる) */
+  takeReserved(label: string, cost = 1): boolean {
     if (this.used + cost > this.limit) {
       if (this.skipped.length < 40) this.skipped.push(label);
       return false;
     }
     this.used += cost;
+    this.reservedUsed += cost;
     return true;
   }
 }
