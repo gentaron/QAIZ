@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Node 22.18+ が必要。テストは .ts を直接実行しており、
       # ネイティブの型ストリッピングに依存している。
@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -111,7 +111,7 @@ jobs:
     # ここが落ちたら、画面で見ているスコアとバックテストで検証した
     # シグナルが別物になっている。
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
